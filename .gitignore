@@ -1,0 +1,17 @@
+# Dependencies
+/vendor/
+/node_modules/
+
+# Cache and logs
+*.log
+.cache/
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+/build/
+/dist/
+
+# Scratch & test scripts
+scratch/
+*.tmp

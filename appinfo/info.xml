@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+    <id>motrix</id>
+    <name>Motrix Download Manager</name>
+    <summary>Seamless download manager for Nextcloud powered by Motrix</summary>
+    <description><![CDATA[Motrix integration for Nextcloud:
+- Add HTTP/HTTPS, FTP, Magnet links, and Torrents directly to Motrix
+- Monitor real-time download progress, speeds, and ETA
+- Automatically sync completed files directly into your Nextcloud storage
+- Pause, resume, and remove active downloads
+- Powered by Motrix MDXP (JSON-RPC 2.0)
+    ]]></description>
+    <version>1.0.0</version>
+    <licence>agpl</licence>
+    <author>Nio</author>
+    <category>tools</category>
+    <bugs>https://github.com/NotUrNio/Motrix-Nextcloud/issues</bugs>
+    <dependencies>
+        <nextcloud min-version="28" max-version="36"/>
+    </dependencies>
+    <navigation>
+        <name>Downloads</name>
+        <route>motrix.page.index</route>
+        <icon>img/motrix.svg</icon>
+        <order>70</order>
+    </navigation>
+    <settings>
+        <admin>OCA\Motrix\Settings\AdminSettings</admin>
+    </settings>
+</info>
