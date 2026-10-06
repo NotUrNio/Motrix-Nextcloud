@@ -103,34 +103,23 @@ class MotrixClient {
             $body = $response->getBody();
             $data = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
         } catch (\Throwable $e) {
-            // Fallback to native curl to bypass Nextcloud internal host restriction
-            if (function_exists('curl_init')) {
-                $ch = curl_init($endpoint);
-                $curlHeaders = [];
-                foreach ($headers as $k => $v) {
-                    $curlHeaders[] = "$k: $v";
-                }
-                curl_setopt_array($ch, [
-                    CURLOPT_POST => true,
-                    CURLOPT_POSTFIELDS => json_encode($payload, JSON_THROW_ON_ERROR),
-                    CURLOPT_HTTPHEADER => $curlHeaders,
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_TIMEOUT => 15,
-                    CURLOPT_CONNECTTIMEOUT => 5,
-                ]);
-                $body = curl_exec($ch);
-                $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                $curlErr = curl_error($ch);
-                curl_close($ch);
-
-                if ($body === false || $statusCode < 200 || $statusCode >= 300) {
-                    $msg = $curlErr ? $curlErr : "HTTP status $statusCode";
-                    throw new RuntimeException("Motrix call failed: $msg (orig: {$e->getMessage()})", 0, $e);
-                }
-                $data = json_decode((string)$body, true, 512, JSON_THROW_ON_ERROR);
-            } else {
-                throw new RuntimeException('Unable to communicate with Motrix: ' . $e->getMessage(), 0, $e);
+            $msg = $e->getMessage();
+            $lower = strtolower($msg);
+            if (
+                str_contains($lower, 'host') ||
+                str_contains($lower, 'private') ||
+                str_contains($lower, 'local') ||
+                str_contains($lower, 'loopback') ||
+                str_contains($lower, 'not allowed') ||
+                str_contains($lower, 'connect')
+            ) {
+                throw new RuntimeException(
+                    "Unable to connect to Motrix server ({$msg}). If Motrix is hosted on a local or private address, please enable 'allow_local_remote_servers' => true in Nextcloud's config/config.php.",
+                    0,
+                    $e
+                );
             }
+            throw new RuntimeException('Unable to communicate with Motrix: ' . $msg, 0, $e);
         }
 
         if (isset($data['error'])) {

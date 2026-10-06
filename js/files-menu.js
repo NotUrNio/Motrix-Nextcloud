@@ -103,6 +103,19 @@
     }
 
     /**
+     * Escapes HTML entities to prevent XSS.
+     */
+    function escapeHtml(str) {
+        if (str == null) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    /**
      * Shows a toast notification.
      */
     function showToast(message, type = 'info') {
@@ -116,7 +129,15 @@
 
         const toast = document.createElement('div');
         toast.className = `motrix-toast motrix-toast-${type}`;
-        toast.innerHTML = `<span>${type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ'}</span> <span>${message}</span>`;
+
+        const iconSpan = document.createElement('span');
+        iconSpan.textContent = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ';
+
+        const msgSpan = document.createElement('span');
+        msgSpan.textContent = message;
+
+        toast.appendChild(iconSpan);
+        toast.appendChild(msgSpan);
         document.body.appendChild(toast);
 
         setTimeout(() => {
@@ -175,7 +196,7 @@
                     <div class="motrix-tab-content active" id="motrix-tab-download">
                         <div class="motrix-folder-badge">
                             <span>📁 Saving directly to:</span>
-                            <strong id="motrix-current-dir">${displayFolder}</strong>
+                            <strong id="motrix-current-dir"></strong>
                         </div>
 
                         <div class="motrix-dropzone" id="motrix-dropzone">
@@ -230,7 +251,7 @@
                             <a href="/apps/motrix" target="_blank" class="motrix-btn motrix-btn-secondary" style="font-size: 12px; text-decoration: none;">
                                 <span>Open Motrix App ↗</span>
                             </a>
-                            <a href="http://${window.location.hostname}:18080" target="_blank" class="motrix-btn motrix-btn-secondary" style="font-size: 12px; text-decoration: none;">
+                            <a id="motrix-port-18080-link" href="http://${window.location.hostname}:18080" target="_blank" class="motrix-btn motrix-btn-secondary" style="font-size: 12px; text-decoration: none;">
                                 <span>Motrix Web UI (Port 18080) ↗</span>
                             </a>
                         </div>
@@ -245,6 +266,11 @@
         `;
 
         document.body.appendChild(overlay);
+
+        const currentDirEl = document.getElementById('motrix-current-dir');
+        if (currentDirEl) {
+            currentDirEl.textContent = displayFolder;
+        }
 
         // Hook close events
         document.getElementById('motrix-modal-close').addEventListener('click', closeMotrixModal);
@@ -439,6 +465,37 @@
     }
 
     /**
+     * Safely renders task statistics using DOM nodes and textContent.
+     */
+    function renderTaskMetaStats(metaEl, m) {
+        if (!metaEl) return;
+        metaEl.innerHTML = '';
+
+        const statsSpan = document.createElement('span');
+        statsSpan.textContent = `${m.percentDisplay} (${m.completedDisplay} / ${m.totalDisplay})`;
+        metaEl.appendChild(statsSpan);
+
+        if (m.status === 'downloading' && m.speed > 0) {
+            const speedSpan = document.createElement('span');
+            speedSpan.textContent = ` • ${m.speedDisplay}`;
+            metaEl.appendChild(speedSpan);
+        }
+
+        if (m.eta) {
+            const etaSpan = document.createElement('span');
+            etaSpan.textContent = ` • ${m.eta}`;
+            metaEl.appendChild(etaSpan);
+        }
+
+        if (m.error) {
+            const errSpan = document.createElement('span');
+            errSpan.style.color = '#f87171';
+            errSpan.textContent = ` • ${m.error}`;
+            metaEl.appendChild(errSpan);
+        }
+    }
+
+    /**
      * Renders or smoothly updates a live task card in the DOM.
      */
     function updateOrRenderTaskCard(m) {
@@ -457,21 +514,15 @@
                     : 'motrix-status-active';
 
         const statusLabel = isFinished ? 'COMPLETE' : m.status.toUpperCase();
-
-        const metaStatsHtml = `
-            <span>${m.percentDisplay} (${m.completedDisplay} / ${m.totalDisplay})</span>
-            ${(m.status === 'downloading' && m.speed > 0) ? ` • <span>${m.speedDisplay}</span>` : ''}
-            ${m.eta ? ` • <span>${m.eta}</span>` : ''}
-            ${m.error ? ` • <span style="color: #f87171;">${m.error}</span>` : ''}
-        `;
+        const safeId = escapeHtml(m.id);
 
         let actionsHtml = '';
         if (m.status === 'downloading') {
-            actionsHtml += `<button type="button" class="motrix-mini-btn" data-action="pause" data-task-id="${m.id}" title="Pause download">⏸ Pause</button>`;
+            actionsHtml += `<button type="button" class="motrix-mini-btn" data-action="pause" data-task-id="${safeId}" title="Pause download">⏸ Pause</button>`;
         } else if (m.status === 'paused') {
-            actionsHtml += `<button type="button" class="motrix-mini-btn" data-action="resume" data-task-id="${m.id}" title="Resume download">▶ Resume</button>`;
+            actionsHtml += `<button type="button" class="motrix-mini-btn" data-action="resume" data-task-id="${safeId}" title="Resume download">▶ Resume</button>`;
         }
-        actionsHtml += `<button type="button" class="motrix-mini-btn motrix-mini-btn-danger" data-action="cancel" data-task-id="${m.id}" title="Remove download">✕ Remove</button>`;
+        actionsHtml += `<button type="button" class="motrix-mini-btn motrix-mini-btn-danger" data-action="cancel" data-task-id="${safeId}" title="Remove download">✕ Remove</button>`;
 
         let card = document.getElementById(`motrix-task-${m.id}`);
         if (!card) {
@@ -481,17 +532,23 @@
             card.setAttribute('data-task-id', m.id);
             card.innerHTML = `
                 <div class="motrix-task-card-header">
-                    <span class="motrix-task-name" title="${m.name}">⚡ ${m.name}</span>
-                    <span class="motrix-task-status-badge ${badgeClass}">${statusLabel}</span>
+                    <span class="motrix-task-name"></span>
+                    <span class="motrix-task-status-badge ${badgeClass}">${escapeHtml(statusLabel)}</span>
                 </div>
                 <div class="motrix-progress-bar-bg">
                     <div class="motrix-progress-bar-fill ${m.status === 'downloading' ? 'active' : ''}" style="width: ${m.percent}%;"></div>
                 </div>
                 <div class="motrix-task-meta">
-                    <div class="motrix-task-meta-stats">${metaStatsHtml}</div>
+                    <div class="motrix-task-meta-stats"></div>
                     <div class="motrix-task-actions">${actionsHtml}</div>
                 </div>
             `;
+            const nameEl = card.querySelector('.motrix-task-name');
+            if (nameEl) {
+                nameEl.textContent = '⚡ ' + (m.name || 'Download Task');
+                nameEl.title = m.name || '';
+            }
+            renderTaskMetaStats(card.querySelector('.motrix-task-meta-stats'), m);
             container.prepend(card);
         } else {
             const nameEl = card.querySelector('.motrix-task-name');
@@ -516,10 +573,7 @@
                 }
             }
 
-            const metaEl = card.querySelector('.motrix-task-meta-stats');
-            if (metaEl) {
-                metaEl.innerHTML = metaStatsHtml;
-            }
+            renderTaskMetaStats(card.querySelector('.motrix-task-meta-stats'), m);
 
             const actionsEl = card.querySelector('.motrix-task-actions');
             if (actionsEl) {
@@ -742,8 +796,43 @@
             if (data.success) {
                 const endpointInput = document.getElementById('motrix-setting-endpoint');
                 const savedirInput = document.getElementById('motrix-setting-savedir');
-                if (endpointInput) endpointInput.value = data.endpoint || 'http://motrix-server:16801';
-                if (savedirInput) savedirInput.value = data.saveDir || '/downloads';
+                const tokenInput = document.getElementById('motrix-setting-token');
+                const saveBtn = document.getElementById('motrix-save-settings-btn');
+                const testBtn = document.getElementById('motrix-test-settings-btn');
+                const port18080Link = document.getElementById('motrix-port-18080-link');
+                const statusDiv = document.getElementById('motrix-settings-status');
+
+                if (data.isAdmin) {
+                    if (endpointInput) {
+                        endpointInput.value = data.endpoint || '';
+                        endpointInput.disabled = false;
+                    }
+                    if (savedirInput) {
+                        savedirInput.value = data.saveDir || '/downloads';
+                        savedirInput.disabled = false;
+                    }
+                    if (tokenInput) tokenInput.disabled = false;
+                    if (saveBtn) saveBtn.style.display = '';
+                    if (testBtn) testBtn.style.display = '';
+                    if (port18080Link) port18080Link.style.display = '';
+                } else {
+                    if (endpointInput) {
+                        endpointInput.value = '(Administrator only)';
+                        endpointInput.disabled = true;
+                    }
+                    if (savedirInput) {
+                        savedirInput.value = data.saveDir || '/downloads';
+                        savedirInput.disabled = true;
+                    }
+                    if (tokenInput) tokenInput.disabled = true;
+                    if (saveBtn) saveBtn.style.display = 'none';
+                    if (testBtn) testBtn.style.display = 'none';
+                    if (port18080Link) port18080Link.style.display = 'none';
+                    if (statusDiv) {
+                        statusDiv.style.color = '#888';
+                        statusDiv.textContent = 'Settings can only be configured by administrators.';
+                    }
+                }
             }
         } catch (e) {
             console.warn('[Motrix] Error loading settings:', e);
@@ -758,7 +847,11 @@
         const testBtn = document.getElementById('motrix-test-settings-btn');
 
         testBtn.disabled = true;
-        statusDiv.innerHTML = '<span style="color: #38bdf8;">Testing connection to Motrix...</span>';
+        statusDiv.innerHTML = '';
+        const testingSpan = document.createElement('span');
+        testingSpan.style.color = '#38bdf8';
+        testingSpan.textContent = 'Testing connection to Motrix...';
+        statusDiv.appendChild(testingSpan);
 
         try {
             const resp = await fetch('/apps/motrix/api/settings/test', {
@@ -770,17 +863,28 @@
             });
             const data = await resp.json();
 
+            statusDiv.innerHTML = '';
             if (data.success) {
                 const engine = data.engine?.state || 'ready';
                 const speed = formatSpeed(data.stats?.totalDownloadSpeed || 0);
-                statusDiv.innerHTML = `<span style="color: #4ade80;">✓ Connected! Engine state: <strong>${engine}</strong> | Current speed: <strong>${speed}</strong></span>`;
+                const successSpan = document.createElement('span');
+                successSpan.style.color = '#4ade80';
+                successSpan.textContent = `✓ Connected! Engine state: ${engine} | Current speed: ${speed}`;
+                statusDiv.appendChild(successSpan);
                 showToast('Motrix connection successful!', 'success');
             } else {
-                statusDiv.innerHTML = `<span style="color: #f87171;">✕ Connection failed: ${data.error || 'Cannot reach Motrix server'}</span>`;
+                const errSpan = document.createElement('span');
+                errSpan.style.color = '#f87171';
+                errSpan.textContent = `✕ Connection failed: ${data.error || 'Cannot reach Motrix server'}`;
+                statusDiv.appendChild(errSpan);
                 showToast('Failed to connect to Motrix', 'error');
             }
         } catch (err) {
-            statusDiv.innerHTML = `<span style="color: #f87171;">✕ Error: ${err.message}</span>`;
+            statusDiv.innerHTML = '';
+            const errSpan = document.createElement('span');
+            errSpan.style.color = '#f87171';
+            errSpan.textContent = `✕ Error: ${err.message || 'Unknown network error'}`;
+            statusDiv.appendChild(errSpan);
         } finally {
             testBtn.disabled = false;
         }
@@ -812,14 +916,25 @@
             });
 
             const data = await resp.json();
+            statusDiv.innerHTML = '';
             if (data.success) {
-                statusDiv.innerHTML = '<span style="color: #4ade80;">✓ Settings saved successfully!</span>';
+                const successSpan = document.createElement('span');
+                successSpan.style.color = '#4ade80';
+                successSpan.textContent = '✓ Settings saved successfully!';
+                statusDiv.appendChild(successSpan);
                 showToast('Settings saved!', 'success');
             } else {
-                statusDiv.innerHTML = `<span style="color: #f87171;">✕ Error: ${data.error || 'Failed to save settings'}</span>`;
+                const errSpan = document.createElement('span');
+                errSpan.style.color = '#f87171';
+                errSpan.textContent = `✕ Error: ${data.error || 'Failed to save settings'}`;
+                statusDiv.appendChild(errSpan);
             }
         } catch (err) {
-            statusDiv.innerHTML = `<span style="color: #f87171;">✕ Error: ${err.message}</span>`;
+            statusDiv.innerHTML = '';
+            const errSpan = document.createElement('span');
+            errSpan.style.color = '#f87171';
+            errSpan.textContent = `✕ Error: ${err.message || 'Unknown network error'}`;
+            statusDiv.appendChild(errSpan);
         } finally {
             saveBtn.disabled = false;
         }

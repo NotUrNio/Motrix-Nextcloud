@@ -41,6 +41,16 @@
         return window.oc_requesttoken || (window.OC && window.OC.requestToken) || document.head?.dataset?.requesttoken || '';
     };
 
+    const escapeHtml = (str) => {
+        if (str == null) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    };
+
     const getApiUrl = (endpoint) => {
         return OC.generateUrl ? OC.generateUrl(`/apps/motrix${endpoint}`) : `/apps/motrix${endpoint}`;
     };
@@ -77,7 +87,12 @@
             gap: 8px;
             transition: opacity 0.3s ease;
         `;
-        toast.innerHTML = `<span>${type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ'}</span> <span>${msg}</span>`;
+        const iconSpan = document.createElement('span');
+        iconSpan.textContent = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ';
+        const msgSpan = document.createElement('span');
+        msgSpan.textContent = msg;
+        toast.appendChild(iconSpan);
+        toast.appendChild(msgSpan);
         document.body.appendChild(toast);
 
         setTimeout(() => {
@@ -139,25 +154,80 @@
             filtered = allTasks.filter(t => t.status === currentFilter);
         }
 
+        container.innerHTML = '';
+
         if (filtered.length === 0) {
-            container.innerHTML = '';
             emptyState.classList.remove('hidden');
             return;
         }
 
         emptyState.classList.add('hidden');
-        container.innerHTML = filtered.map(t => {
+
+        filtered.forEach(t => {
             const progress = (t.progress != null ? (t.progress * 100).toFixed(1) : 0);
             const done = formatBytes(t.bytesDone || 0);
             const total = t.bytesTotal ? formatBytes(t.bytesTotal) : 'Unknown size';
             const speed = t.speedBps ? formatSpeed(t.speedBps) : '0 B/s';
             const eta = formatEta(t.etaSec);
 
-            let actionsHtml = '';
+            const card = document.createElement('div');
+            card.className = 'motrix-task-card';
+            card.id = `task-${t.id}`;
+
+            const header = document.createElement('div');
+            header.className = 'task-card-header';
+
+            const title = document.createElement('span');
+            title.className = 'task-title';
+            const titleText = t.name || ('Task ' + t.id);
+            title.textContent = titleText;
+            title.title = titleText;
+
+            const badge = document.createElement('span');
+            badge.className = `task-status-badge badge-${t.status || 'unknown'}`;
+            badge.textContent = t.status || '';
+
+            header.appendChild(title);
+            header.appendChild(badge);
+            card.appendChild(header);
+
+            const progressBar = document.createElement('div');
+            progressBar.className = 'task-progress-bar';
+            const progressFill = document.createElement('div');
+            progressFill.className = 'task-progress-fill';
+            progressFill.style.width = `${progress}%`;
+            progressBar.appendChild(progressFill);
+            card.appendChild(progressBar);
+
+            const meta = document.createElement('div');
+            meta.className = 'task-card-meta';
+
+            const metaInfo = document.createElement('div');
+            let metaText = `${progress}% (${done} / ${total})`;
             if (t.status === 'downloading') {
-                actionsHtml += `<button class="task-btn" onclick="window.motrixApp.pauseTask('${t.id}')">Pause</button>`;
+                metaText += ` • ${speed}`;
+            }
+            if (eta) {
+                metaText += ` • ${eta}`;
+            }
+            metaInfo.textContent = metaText;
+            meta.appendChild(metaInfo);
+
+            const actions = document.createElement('div');
+            actions.className = 'task-actions';
+
+            if (t.status === 'downloading') {
+                const pauseBtn = document.createElement('button');
+                pauseBtn.className = 'task-btn';
+                pauseBtn.textContent = 'Pause';
+                pauseBtn.addEventListener('click', () => window.motrixApp.pauseTask(t.id));
+                actions.appendChild(pauseBtn);
             } else if (t.status === 'paused') {
-                actionsHtml += `<button class="task-btn" onclick="window.motrixApp.resumeTask('${t.id}')">Resume</button>`;
+                const resumeBtn = document.createElement('button');
+                resumeBtn.className = 'task-btn';
+                resumeBtn.textContent = 'Resume';
+                resumeBtn.addEventListener('click', () => window.motrixApp.resumeTask(t.id));
+                actions.appendChild(resumeBtn);
             }
 
             if (t.status === 'completed') {
@@ -165,38 +235,34 @@
                     const info = sessionSyncedTasks.get(t.id);
                     const folder = info.folder || '';
                     const filesUrl = `/apps/files/?dir=/${encodeURIComponent(folder)}`;
-                    actionsHtml += `<a href="${filesUrl}" target="_blank" class="task-btn primary" style="text-decoration:none; display:inline-flex; align-items:center; gap:4px;" title="Open in Nextcloud Files">📂 Open in Files ↗</a>`;
+                    const openLink = document.createElement('a');
+                    openLink.href = filesUrl;
+                    openLink.target = '_blank';
+                    openLink.className = 'task-btn primary';
+                    openLink.style.cssText = 'text-decoration:none; display:inline-flex; align-items:center; gap:4px;';
+                    openLink.title = 'Open in Nextcloud Files';
+                    openLink.textContent = '📂 Open in Files ↗';
+                    actions.appendChild(openLink);
                 } else {
-                    actionsHtml += `<button class="task-btn primary btn-sync-${t.id}" onclick="window.motrixApp.syncTask('${t.id}')">📂 Save to Files</button>`;
+                    const syncBtn = document.createElement('button');
+                    syncBtn.className = `task-btn primary btn-sync-${t.id}`;
+                    syncBtn.textContent = '📂 Save to Files';
+                    syncBtn.addEventListener('click', () => window.motrixApp.syncTask(t.id));
+                    actions.appendChild(syncBtn);
                 }
             }
 
-            actionsHtml += `<button class="task-btn danger" onclick="window.motrixApp.deleteTask('${t.id}')">Remove</button>`;
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'task-btn danger';
+            removeBtn.textContent = 'Remove';
+            removeBtn.addEventListener('click', () => window.motrixApp.deleteTask(t.id));
+            actions.appendChild(removeBtn);
 
-            return `
-                <div class="motrix-task-card" id="task-${t.id}">
-                    <div class="task-card-header">
-                        <span class="task-title" title="${t.name || t.id}">${t.name || 'Task ' + t.id}</span>
-                        <span class="task-status-badge badge-${t.status}">${t.status}</span>
-                    </div>
+            meta.appendChild(actions);
+            card.appendChild(meta);
 
-                    <div class="task-progress-bar">
-                        <div class="task-progress-fill" style="width: ${progress}%"></div>
-                    </div>
-
-                    <div class="task-card-meta">
-                        <div>
-                            <span>${progress}% (${done} / ${total})</span>
-                            ${t.status === 'downloading' ? ` • <span>${speed}</span>` : ''}
-                            ${eta ? ` • <span>${eta}</span>` : ''}
-                        </div>
-                        <div class="task-actions">
-                            ${actionsHtml}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
+            container.appendChild(card);
+        });
     };
 
     const updateCounts = () => {
@@ -296,11 +362,11 @@
             const task = allTasks.find(t => t.id === taskId);
             const card = document.getElementById(`task-${taskId}`);
             const syncBtn = card ? card.querySelector(`.btn-sync-${taskId}, .task-btn.primary`) : null;
-            const originalText = syncBtn ? syncBtn.innerHTML : '📂 Save to Files';
+            const originalText = syncBtn ? syncBtn.textContent : '📂 Save to Files';
 
             if (syncBtn) {
                 syncBtn.disabled = true;
-                syncBtn.innerHTML = '⏳ Saving to Files...';
+                syncBtn.textContent = '⏳ Saving to Files...';
             }
 
             // Automatically deduce target folder from task saveDir if available
@@ -331,7 +397,14 @@
 
                     if (syncBtn) {
                         const filesUrl = `/apps/files/?dir=/${encodeURIComponent(destFolder)}`;
-                        syncBtn.outerHTML = `<a href="${filesUrl}" target="_blank" class="task-btn primary" style="text-decoration:none; display:inline-flex; align-items:center; gap:4px;" title="Open in Nextcloud Files">📂 Open in Files ↗</a>`;
+                        const openLink = document.createElement('a');
+                        openLink.href = filesUrl;
+                        openLink.target = '_blank';
+                        openLink.className = 'task-btn primary';
+                        openLink.style.cssText = 'text-decoration:none; display:inline-flex; align-items:center; gap:4px;';
+                        openLink.title = 'Open in Nextcloud Files';
+                        openLink.textContent = '📂 Open in Files ↗';
+                        syncBtn.replaceWith(openLink);
                     }
 
                     showNotification(`✓ File saved to Nextcloud: ${destPath}`, 'success');
@@ -340,7 +413,7 @@
                     showNotification(errMsg, 'error');
                     if (syncBtn) {
                         syncBtn.disabled = false;
-                        syncBtn.innerHTML = originalText;
+                        syncBtn.textContent = originalText;
                     }
                 }
             } catch (e) {
@@ -348,7 +421,7 @@
                 showNotification('Sync failed: ' + e.message, 'error');
                 if (syncBtn) {
                     syncBtn.disabled = false;
-                    syncBtn.innerHTML = originalText;
+                    syncBtn.textContent = originalText;
                 }
             }
         }
@@ -445,8 +518,34 @@
                 });
                 const data = await safeParseJson(res);
                 if (data.success) {
-                    document.getElementById('input-setting-endpoint').value = data.endpoint || '';
-                    document.getElementById('input-setting-savedir').value = data.saveDir || '';
+                    const endpointInput = document.getElementById('input-setting-endpoint');
+                    const savedirInput = document.getElementById('input-setting-savedir');
+                    const tokenInput = document.getElementById('input-setting-token');
+                    const saveBtn = document.getElementById('btn-save-settings');
+                    const testBtn = document.getElementById('btn-test-connection');
+                    const resDiv = document.getElementById('test-connection-result');
+
+                    if (data.isAdmin) {
+                        endpointInput.value = data.endpoint || '';
+                        endpointInput.disabled = false;
+                        savedirInput.value = data.saveDir || '';
+                        savedirInput.disabled = false;
+                        tokenInput.disabled = false;
+                        saveBtn.style.display = '';
+                        testBtn.style.display = '';
+                        resDiv.classList.add('hidden');
+                    } else {
+                        endpointInput.value = '(Administrator only)';
+                        endpointInput.disabled = true;
+                        savedirInput.value = data.saveDir || '';
+                        savedirInput.disabled = true;
+                        tokenInput.disabled = true;
+                        saveBtn.style.display = 'none';
+                        testBtn.style.display = 'none';
+                        resDiv.classList.remove('hidden');
+                        resDiv.style.color = '#888';
+                        resDiv.textContent = 'Settings can only be configured by administrators.';
+                    }
                 }
             } catch (_) {}
         });
