@@ -7,6 +7,7 @@
     let currentFilter = 'all';
     let pollTimer = null;
     let allTasks = [];
+    const sessionSyncedTasks = window._motrixSyncedTasks || (window._motrixSyncedTasks = new Map());
 
     const formatBytes = (bytes) => {
         if (!bytes || bytes <= 0) return '0 B';
@@ -41,7 +42,60 @@
     };
 
     const getApiUrl = (endpoint) => {
-        return OC.generateUrl(`/apps/motrix${endpoint}`);
+        return OC.generateUrl ? OC.generateUrl(`/apps/motrix${endpoint}`) : `/apps/motrix${endpoint}`;
+    };
+
+    const showNotification = (msg, type = 'info') => {
+        if (window.OC?.Notification?.showTemporary) {
+            window.OC.Notification.showTemporary(msg);
+            return;
+        }
+        if (window.OC?.Notification?.show) {
+            window.OC.Notification.show(msg, { timeout: 4 });
+            return;
+        }
+
+        const existingToast = document.querySelector('.motrix-toast');
+        if (existingToast) existingToast.remove();
+
+        const toast = document.createElement('div');
+        toast.className = `motrix-toast motrix-toast-${type}`;
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 12px 18px;
+            background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+            color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 99999;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: opacity 0.3s ease;
+        `;
+        toast.innerHTML = `<span>${type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ'}</span> <span>${msg}</span>`;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 4000);
+    };
+
+    const safeParseJson = async (res) => {
+        const text = await res.text();
+        try {
+            return JSON.parse(text);
+        } catch (_) {
+            if (!res.ok) {
+                return { success: false, error: `HTTP ${res.status}: Server communication error` };
+            }
+            return { success: false, error: text || 'Invalid JSON response' };
+        }
     };
 
     const fetchTasks = async () => {
@@ -49,7 +103,7 @@
             const res = await fetch(getApiUrl('/api/tasks'), {
                 headers: { 'requesttoken': getRequestToken() }
             });
-            const data = await res.json();
+            const data = await safeParseJson(res);
             if (data.success) {
                 allTasks = data.tasks || [];
                 renderTasks();
@@ -68,7 +122,7 @@
             const res = await fetch(getApiUrl('/api/stats'), {
                 headers: { 'requesttoken': getRequestToken() }
             });
-            const data = await res.json();
+            const data = await safeParseJson(res);
             if (data.success && data.stats) {
                 document.getElementById('speed-download').textContent = formatSpeed(data.stats.totalDownloadSpeed || 0);
                 document.getElementById('speed-upload').textContent = formatSpeed(data.stats.totalUploadSpeed || 0);
@@ -107,7 +161,14 @@
             }
 
             if (t.status === 'completed') {
-                actionsHtml += `<button class="task-btn primary" onclick="window.motrixApp.syncTask('${t.id}')">📂 Save to Files</button>`;
+                if (sessionSyncedTasks.has(t.id)) {
+                    const info = sessionSyncedTasks.get(t.id);
+                    const folder = info.folder || '';
+                    const filesUrl = `/apps/files/?dir=/${encodeURIComponent(folder)}`;
+                    actionsHtml += `<a href="${filesUrl}" target="_blank" class="task-btn primary" style="text-decoration:none; display:inline-flex; align-items:center; gap:4px;" title="Open in Nextcloud Files">📂 Open in Files ↗</a>`;
+                } else {
+                    actionsHtml += `<button class="task-btn primary btn-sync-${t.id}" onclick="window.motrixApp.syncTask('${t.id}')">📂 Save to Files</button>`;
+                }
             }
 
             actionsHtml += `<button class="task-btn danger" onclick="window.motrixApp.deleteTask('${t.id}')">Remove</button>`;
@@ -197,13 +258,14 @@
                     });
                 }
 
-                const data = await res.json();
+                const data = await safeParseJson(res);
                 if (data.success) {
                     allTasks = allTasks.filter(t => t.id !== taskId);
                     renderTasks();
                     updateCounts();
+                    showNotification('Task removed', 'info');
                 } else {
-                    alert('Could not remove task: ' + (data.error || 'Unknown error'));
+                    showNotification('Could not remove task: ' + (data.error || 'Unknown error'), 'error');
                     if (card) {
                         card.style.opacity = '1';
                         card.style.pointerEvents = 'auto';
@@ -221,7 +283,7 @@
                     renderTasks();
                     updateCounts();
                 } catch (_) {
-                    alert('Error removing task: ' + err.message);
+                    showNotification('Error removing task: ' + err.message, 'error');
                     if (card) {
                         card.style.opacity = '1';
                         card.style.pointerEvents = 'auto';
@@ -231,7 +293,25 @@
             fetchTasks();
         },
         syncTask: async (taskId) => {
-            const folder = prompt('Enter target Nextcloud folder name:', 'Downloads') || 'Downloads';
+            const task = allTasks.find(t => t.id === taskId);
+            const card = document.getElementById(`task-${taskId}`);
+            const syncBtn = card ? card.querySelector(`.btn-sync-${taskId}, .task-btn.primary`) : null;
+            const originalText = syncBtn ? syncBtn.innerHTML : '📂 Save to Files';
+
+            if (syncBtn) {
+                syncBtn.disabled = true;
+                syncBtn.innerHTML = '⏳ Saving to Files...';
+            }
+
+            // Automatically deduce target folder from task saveDir if available
+            let folder = '';
+            if (task && task.saveDir) {
+                const match = task.saveDir.match(/\/files(?:\/(.*))?$/);
+                if (match && match[1]) {
+                    folder = match[1];
+                }
+            }
+
             try {
                 const res = await fetch(getApiUrl(`/api/tasks/${taskId}/sync`), {
                     method: 'POST',
@@ -241,14 +321,35 @@
                     },
                     body: JSON.stringify({ targetFolder: folder })
                 });
-                const data = await res.json();
+
+                const data = await safeParseJson(res);
                 if (data.success && data.result && data.result.synced) {
-                    OC.dialogs.info(`File successfully saved to ${data.result.destination}`, 'Download Saved');
+                    const destFolder = data.result.folder !== undefined ? data.result.folder : (folder || '');
+                    const destPath = data.result.destination || (task?.name || 'File');
+
+                    sessionSyncedTasks.set(taskId, { folder: destFolder, destination: destPath });
+
+                    if (syncBtn) {
+                        const filesUrl = `/apps/files/?dir=/${encodeURIComponent(destFolder)}`;
+                        syncBtn.outerHTML = `<a href="${filesUrl}" target="_blank" class="task-btn primary" style="text-decoration:none; display:inline-flex; align-items:center; gap:4px;" title="Open in Nextcloud Files">📂 Open in Files ↗</a>`;
+                    }
+
+                    showNotification(`✓ File saved to Nextcloud: ${destPath}`, 'success');
                 } else {
-                    alert(data.result?.message || data.error || 'Sync failed');
+                    const errMsg = data.result?.message || data.error || 'Failed to save download to Nextcloud Files';
+                    showNotification(errMsg, 'error');
+                    if (syncBtn) {
+                        syncBtn.disabled = false;
+                        syncBtn.innerHTML = originalText;
+                    }
                 }
             } catch (e) {
-                alert('Sync failed: ' + e.message);
+                console.error('[Motrix] Sync failed:', e);
+                showNotification('Sync failed: ' + e.message, 'error');
+                if (syncBtn) {
+                    syncBtn.disabled = false;
+                    syncBtn.innerHTML = originalText;
+                }
             }
         }
     };
@@ -319,17 +420,18 @@
                     },
                     body: JSON.stringify(payload)
                 });
-                const data = await res.json();
+                const data = await safeParseJson(res);
                 if (data.success) {
                     addModal.classList.add('hidden');
                     document.getElementById('input-task-url').value = '';
                     document.getElementById('input-task-magnet').value = '';
                     fetchTasks();
+                    showNotification('Download started', 'success');
                 } else {
-                    alert('Error adding download: ' + (data.error || 'Unknown error'));
+                    showNotification('Error adding download: ' + (data.error || 'Unknown error'), 'error');
                 }
             } catch (err) {
-                alert('Request failed: ' + err.message);
+                showNotification('Request failed: ' + err.message, 'error');
             }
         });
 
@@ -341,7 +443,7 @@
                 const res = await fetch(getApiUrl('/api/settings'), {
                     headers: { 'requesttoken': getRequestToken() }
                 });
-                const data = await res.json();
+                const data = await safeParseJson(res);
                 if (data.success) {
                     document.getElementById('input-setting-endpoint').value = data.endpoint || '';
                     document.getElementById('input-setting-savedir').value = data.saveDir || '';
@@ -366,7 +468,7 @@
                     method: 'POST',
                     headers: { 'requesttoken': getRequestToken() }
                 });
-                const data = await res.json();
+                const data = await safeParseJson(res);
                 if (data.success) {
                     resDiv.style.color = '#28a745';
                     resDiv.textContent = 'Connected successfully to Motrix engine!';
@@ -395,16 +497,17 @@
                     },
                     body: JSON.stringify({ endpoint, token, saveDir })
                 });
-                const data = await res.json();
+                const data = await safeParseJson(res);
                 if (data.success) {
                     settingsModal.classList.add('hidden');
                     fetchTasks();
                     fetchStats();
+                    showNotification('Settings saved successfully', 'success');
                 } else {
-                    alert('Failed to save settings: ' + data.error);
+                    showNotification('Failed to save settings: ' + data.error, 'error');
                 }
             } catch (e) {
-                alert('Save failed: ' + e.message);
+                showNotification('Save failed: ' + e.message, 'error');
             }
         });
 

@@ -7,18 +7,72 @@ namespace OCA\Motrix\Service;
 use OCP\Files\IRootFolder;
 use OCP\Files\NotFoundException;
 use OCP\Files\NotPermittedException;
+use OCP\IConfig;
 use Psr\Log\LoggerInterface;
 
 class StorageSyncService {
     private IRootFolder $rootFolder;
     private LoggerInterface $logger;
+    private IConfig $config;
 
     public function __construct(
         IRootFolder $rootFolder,
-        LoggerInterface $logger
+        LoggerInterface $logger,
+        IConfig $config
     ) {
         $this->rootFolder = $rootFolder;
         $this->logger = $logger;
+        $this->config = $config;
+    }
+
+    /**
+     * Translates paths reported by the Motrix container into real local paths in Nextcloud.
+     */
+    public function resolveLocalPath(?string $path): ?string {
+        if (empty($path)) {
+            return null;
+        }
+
+        if (file_exists($path)) {
+            return $path;
+        }
+
+        $dataDir = rtrim((string)$this->config->getSystemValue('datadirectory', '/home/container/nextcloud/data'), '/');
+        $baseMotrixSaveDir = rtrim((string)$this->config->getAppValue('motrix', 'motrix_save_dir', '/downloads'), '/');
+        if (empty($baseMotrixSaveDir)) {
+            $baseMotrixSaveDir = '/downloads';
+        }
+
+        // Case 1: path starts with motrix_save_dir (e.g. /downloads/...)
+        if (str_starts_with($path, $baseMotrixSaveDir)) {
+            $rel = substr($path, strlen($baseMotrixSaveDir));
+            $candidate = $dataDir . '/' . ltrim($rel, '/');
+            if (file_exists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        // Case 2: path starts with generic '/downloads'
+        if (str_starts_with($path, '/downloads')) {
+            $rel = substr($path, strlen('/downloads'));
+            $candidate = $dataDir . '/' . ltrim($rel, '/');
+            if (file_exists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        // Case 3: alternate data paths
+        foreach (['/var/www/html/data', '/home/container/nextcloud/data'] as $altData) {
+            if (str_starts_with($path, $altData)) {
+                $rel = substr($path, strlen($altData));
+                $candidate = $dataDir . '/' . ltrim($rel, '/');
+                if (file_exists($candidate)) {
+                    return $candidate;
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -29,41 +83,80 @@ class StorageSyncService {
      * @param string $targetSubfolder Relative subfolder in user storage (default 'Downloads')
      * @return array Result information
      */
-    public function syncCompletedTask(string $userId, array $task, string $targetSubfolder = 'Downloads'): array {
+    public function syncCompletedTask(string $userId, array $task, string $targetSubfolder = ''): array {
         $taskName = $task['name'] ?? 'download';
         $finalPath = $task['finalPath'] ?? null;
 
-        if (empty($finalPath) || !file_exists($finalPath)) {
-            // Also check saveDir + name if finalPath is not directly populated
+        $resolvedPath = $this->resolveLocalPath($finalPath);
+
+        if ($resolvedPath === null) {
             $saveDir = $task['saveDir'] ?? '/downloads';
             $potentialPath = rtrim($saveDir, '/') . '/' . $taskName;
-            if (file_exists($potentialPath)) {
-                $finalPath = $potentialPath;
+            $resolvedPath = $this->resolveLocalPath($potentialPath);
+        }
+
+        if ($resolvedPath === null && !empty($task['files']) && is_array($task['files'])) {
+            foreach ($task['files'] as $f) {
+                $fPath = is_array($f) ? ($f['path'] ?? null) : null;
+                if (!empty($fPath)) {
+                    $resolvedPath = $this->resolveLocalPath($fPath);
+                    if ($resolvedPath !== null) {
+                        break;
+                    }
+                }
             }
         }
 
-        if (empty($finalPath) || !file_exists($finalPath)) {
+        $dataDir = rtrim((string)$this->config->getSystemValue('datadirectory', '/home/container/nextcloud/data'), '/');
+        $userStoragePrefix = $dataDir . '/' . $userId . '/files';
+
+        if ($resolvedPath === null) {
+            $sub = trim($targetSubfolder, '/');
+            $candidates = [
+                $userStoragePrefix . ($sub !== '' ? '/' . $sub : '') . '/' . $taskName,
+                $userStoragePrefix . '/' . $taskName,
+                $userStoragePrefix . '/Movies/' . $taskName,
+                $userStoragePrefix . '/Downloads/' . $taskName,
+            ];
+            foreach ($candidates as $c) {
+                if (file_exists($c)) {
+                    $resolvedPath = $c;
+                    break;
+                }
+            }
+        }
+
+        if ($resolvedPath === null || !file_exists($resolvedPath)) {
             return [
                 'synced' => false,
-                'message' => 'Completed file not found on filesystem at: ' . ($finalPath ?: 'unknown path'),
+                'message' => 'Completed file not found on filesystem at: ' . ($finalPath ?: $taskName),
+            ];
+        }
+
+        // Check if the file is already inside the user's Nextcloud storage directory
+        if (str_starts_with($resolvedPath, $userStoragePrefix)) {
+            $relInUser = trim(substr($resolvedPath, strlen($userStoragePrefix)), '/');
+            $dirInUser = trim(dirname($relInUser), '/.');
+            if ($dirInUser === '.') {
+                $dirInUser = '';
+            }
+            $fileName = basename($relInUser);
+
+            $scanResult = $this->scanPath($userId, $dirInUser);
+
+            return [
+                'synced' => true,
+                'direct' => true,
+                'folder' => $dirInUser,
+                'destination' => ($dirInUser !== '' ? $dirInUser . '/' : '') . $fileName,
+                'fileName' => $fileName,
+                'scan' => $scanResult,
             ];
         }
 
         $cleanTarget = trim($targetSubfolder, '/');
-
-        // Check if the file is already inside the user's Nextcloud storage directory
-        // Motrix saveDir prefix is /downloads, which maps to Nextcloud's data directory.
-        $userStoragePrefix = '/downloads/' . $userId . '/files';
-        if (!empty($finalPath) && str_starts_with($finalPath, $userStoragePrefix)) {
-            // Already inside user storage! Simply scan Nextcloud filecache.
-            $scanResult = $this->scanPath($userId, $cleanTarget);
-            return [
-                'synced' => true,
-                'direct' => true,
-                'destination' => ($cleanTarget !== '' ? $cleanTarget . '/' : '') . basename($finalPath),
-                'fileName' => basename($finalPath),
-                'scan' => $scanResult,
-            ];
+        if ($cleanTarget === '') {
+            $cleanTarget = 'Downloads';
         }
 
         try {
@@ -75,7 +168,7 @@ class StorageSyncService {
             }
 
             $destFolder = $cleanTarget !== '' ? $userFolder->get($cleanTarget) : $userFolder;
-            $fileName = basename($finalPath);
+            $fileName = basename($resolvedPath);
 
             // Avoid collisions
             $destName = $fileName;
@@ -88,21 +181,25 @@ class StorageSyncService {
             }
 
             // Write or copy stream into Nextcloud storage
-            if (is_file($finalPath)) {
+            if (is_file($resolvedPath)) {
                 $destFile = $destFolder->newFile($destName);
-                $stream = fopen($finalPath, 'rb');
+                $stream = fopen($resolvedPath, 'rb');
                 if ($stream !== false) {
                     $destFile->setContent($stream);
                     fclose($stream);
                 }
-            } elseif (is_dir($finalPath)) {
+            } elseif (is_dir($resolvedPath)) {
                 // If it's a downloaded folder (e.g. multi-file torrent)
-                $this->copyDirectoryToNextcloud($finalPath, $destFolder->newFolder($destName));
+                $this->copyDirectoryToNextcloud($resolvedPath, $destFolder->newFolder($destName));
             }
+
+            $this->scanPath($userId, $cleanTarget);
 
             return [
                 'synced' => true,
-                'destination' => $targetSubfolder . '/' . $destName,
+                'direct' => false,
+                'folder' => $cleanTarget,
+                'destination' => ($cleanTarget !== '' ? $cleanTarget . '/' : '') . $destName,
                 'fileName' => $destName,
             ];
         } catch (\Throwable $e) {
@@ -156,6 +253,11 @@ class StorageSyncService {
         try {
             $userFolder = $this->rootFolder->getUserFolder($userId);
             $cleanFolder = trim($targetFolder, '/');
+
+            if ($cleanFolder !== '' && !$userFolder->nodeExists($cleanFolder)) {
+                $storage = $userFolder->getStorage();
+                $storage->getScanner()->scan($userFolder->getInternalPath());
+            }
 
             if ($cleanFolder !== '' && $userFolder->nodeExists($cleanFolder)) {
                 $node = $userFolder->get($cleanFolder);

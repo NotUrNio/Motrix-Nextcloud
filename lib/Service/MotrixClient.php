@@ -34,7 +34,29 @@ class MotrixClient {
     }
 
     public function getToken(): string {
-        return (string)$this->config->getAppValue('motrix', self::CONFIG_TOKEN, '');
+        $token = (string)$this->config->getAppValue('motrix', self::CONFIG_TOKEN, '');
+        if (!empty($token)) {
+            return $token;
+        }
+
+        $candidates = [
+            '/downloads/bridge/endpoint.json',
+            '/home/container/motrix/bridge/endpoint.json',
+            '/data/bridge/endpoint.json',
+        ];
+        foreach ($candidates as $candidate) {
+            if (file_exists($candidate)) {
+                $content = @file_get_contents($candidate);
+                if ($content !== false) {
+                    $json = json_decode($content, true);
+                    if (!empty($json['localToken'])) {
+                        return (string)$json['localToken'];
+                    }
+                }
+            }
+        }
+
+        return '';
     }
 
     public function getDefaultSaveDir(): string {

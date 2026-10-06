@@ -7,8 +7,8 @@ namespace OCA\Motrix\Controller;
 use OCA\Motrix\Service\MotrixClient;
 use OCA\Motrix\Service\StorageSyncService;
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataResponse;
-use OCP\AppFramework\Http\Http;
 use OCP\Files\IRootFolder;
 use OCP\IConfig;
 use OCP\IRequest;
@@ -214,7 +214,7 @@ class ApiController extends Controller {
       * @NoAdminRequired
       * @NoCSRFRequired
       */
-     public function syncTask(string $taskId, string $targetFolder = 'Downloads'): DataResponse {
+     public function syncTask(string $taskId, string $targetFolder = ''): DataResponse {
         $user = $this->userSession->getUser();
         if (!$user) {
             return new DataResponse(['success' => false, 'error' => 'User not logged in'], Http::STATUS_UNAUTHORIZED);
@@ -222,6 +222,17 @@ class ApiController extends Controller {
 
         try {
             $task = $this->motrixClient->getTask($taskId);
+            if (!$task) {
+                // Fallback: look through task list in case of ID/GID discrepancy
+                $allTasks = $this->motrixClient->listTasks();
+                foreach ($allTasks as $t) {
+                    if (($t['id'] ?? '') === $taskId || ($t['gid'] ?? '') === $taskId) {
+                        $task = $t;
+                        break;
+                    }
+                }
+            }
+
             if (!$task) {
                 return new DataResponse(['success' => false, 'error' => 'Task not found in Motrix'], Http::STATUS_NOT_FOUND);
             }
