@@ -2,21 +2,124 @@
  * Motrix Nextcloud App - Files Menu & Shortcut Styles
  */
 
-/* Menu Entry Icon Styling */
-.motrix-menu-icon {
+/* Header Action Button - Placed next to + New */
+.motrix-header-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    height: 34px !important;
+    padding: 0 14px !important;
+    margin: 0 6px !important;
+    border-radius: var(--border-radius-pill, 22px) !important;
+    background: var(--color-background-hover, rgba(255, 255, 255, 0.08)) !important;
+    border: 1px solid var(--color-border, rgba(255, 255, 255, 0.15)) !important;
+    color: var(--color-main-text, #ffffff) !important;
+    font-family: var(--font-face, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    box-sizing: border-box !important;
+    vertical-align: middle !important;
+    transition: background 0.15s ease-in-out, border-color 0.15s ease-in-out, color 0.15s ease-in-out !important;
+    outline: none !important;
+    text-decoration: none !important;
+    flex-shrink: 0 !important;
+}
+
+.motrix-header-btn:hover {
+    background: var(--color-background-hover, rgba(255, 255, 255, 0.14)) !important;
+    border-color: var(--color-primary-element, #0082c9) !important;
+    color: var(--color-main-text, #ffffff) !important;
+}
+
+.motrix-header-btn:active {
+    transform: scale(0.98);
+}
+
+.motrix-header-btn:focus-visible {
+    box-shadow: 0 0 0 2px var(--color-primary-element, #0082c9) !important;
+}
+
+.motrix-header-btn .motrix-btn-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
-    margin-right: 12px;
-    vertical-align: middle;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.motrix-header-btn .motrix-btn-icon svg {
+    width: 17px;
+    height: 17px;
+    stroke: var(--color-primary-element, #0082c9);
+}
+
+.motrix-header-btn .motrix-btn-text {
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+@media (max-width: 600px) {
+    .motrix-header-btn {
+        padding: 0 10px !important;
+    }
+    .motrix-header-btn .motrix-btn-text {
+        display: none !important;
+    }
+}
+
+/* Suppress any accidental injection inside upload-picker */
+.upload-picker > li,
+.upload-picker #motrix-dom-menu-entry,
+#motrix-quick-header-btn {
+    display: none !important;
+}
+
+/* Menu Entry inside Popover / + New dropdown */
+[data-cy-upload-picker-menu-entry="motrix-download"],
+#motrix-popover-menu-entry .upload-picker__menu-entry {
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+    background: transparent !important;
+    color: var(--color-main-text, #ffffff) !important;
+    padding: 8px 14px !important;
+    border: none !important;
+    cursor: pointer !important;
+    text-align: left !important;
+    font-size: 14px !important;
+    white-space: nowrap !important;
+    border-radius: var(--border-radius-element, 4px) !important;
+    box-sizing: border-box !important;
+    transition: background 0.15s !important;
+}
+
+[data-cy-upload-picker-menu-entry="motrix-download"]:hover,
+#motrix-popover-menu-entry .upload-picker__menu-entry:hover {
+    background: var(--color-background-hover, rgba(255, 255, 255, 0.08)) !important;
+    color: var(--color-main-text, #ffffff) !important;
+}
+
+/* Menu Entry Icon Styling */
+.motrix-menu-icon {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 20px !important;
+    height: 20px !important;
+    margin-right: 12px !important;
+    flex-shrink: 0 !important;
+    vertical-align: middle !important;
 }
 
 .motrix-menu-icon svg {
-    width: 18px;
-    height: 18px;
-    stroke: var(--color-primary-element, #0082c9);
+    width: 18px !important;
+    height: 18px !important;
+    stroke: var(--color-primary-element, #0082c9) !important;
 }
 
 /* Modal Overlay */

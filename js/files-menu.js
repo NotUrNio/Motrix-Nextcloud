@@ -587,10 +587,10 @@
      */
     function registerInNewFileMenu() {
         try {
-            const scope = window._nc_files_scope?.v4_0;
-            if (scope && scope.newFileMenu && typeof scope.newFileMenu.registerEntry === 'function') {
-                if (scope.newFileMenu.getEntryIndex('motrix-download') === -1) {
-                    scope.newFileMenu.registerEntry({
+            const menu = window._nc_newfilemenu || window._nc_files_scope?.v4_0?.newFileMenu;
+            if (menu && typeof menu.registerEntry === 'function') {
+                if (menu.getEntryIndex('motrix-download') === -1) {
+                    menu.registerEntry({
                         id: 'motrix-download',
                         displayName: 'Download with Motrix',
                         iconSvgInline: MOTRIX_SVG_ICON,
@@ -601,7 +601,7 @@
                             openMotrixModal(dir);
                         }
                     });
-                    console.log('[Motrix] Successfully registered into window._nc_files_scope.v4_0.newFileMenu');
+                    console.log('[Motrix] Successfully registered into newFileMenu');
                     return true;
                 }
             }
@@ -612,39 +612,78 @@
     }
 
     /**
-     * Fallback DOM injector for the "+ New" menu popover.
-     * When user clicks "+ New", checks if the menu item is rendered; if not, inserts it cleanly.
+     * Attaches a primary header shortcut button right next to "+ New".
      */
-    function attachDOMMenuObserver() {
+    function attachHeaderButton() {
+        // Clean up any old duplicate breadcrumb button
+        const oldQuick = document.getElementById('motrix-quick-header-btn');
+        if (oldQuick) oldQuick.remove();
+
+        // If button already exists in header, do not duplicate
+        if (document.getElementById('motrix-header-btn')) return;
+
+        // Find upload picker (+ New button container)
+        const uploadPicker = document.querySelector('.upload-picker, [data-cy-upload-picker]');
+        if (!uploadPicker) return;
+
+        // Clean up any stray child mistakenly appended into uploadPicker
+        const strayLis = uploadPicker.querySelectorAll('li#motrix-dom-menu-entry, li');
+        strayLis.forEach(el => el.remove());
+
+        const btn = document.createElement('button');
+        btn.id = 'motrix-header-btn';
+        btn.className = 'motrix-header-btn button-vue';
+        btn.type = 'button';
+        btn.setAttribute('aria-label', 'Download with Motrix');
+        btn.title = 'Download directly to this folder with Motrix';
+        btn.innerHTML = `
+            <span class="motrix-btn-icon">${MOTRIX_SVG_ICON}</span>
+            <span class="motrix-btn-text">Download with Motrix</span>
+        `;
+
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openMotrixModal(getCurrentFolder());
+        });
+
+        // Insert immediately after the + New container
+        uploadPicker.insertAdjacentElement('afterend', btn);
+    }
+
+    /**
+     * Fallback DOM injector for the "+ New" popover menu.
+     * ONLY injects into the open popover menu. NEVER touches .upload-picker.
+     */
+    function attachPopoverMenuObserver() {
         const observer = new MutationObserver(() => {
-            // Find open upload picker or menu popover
-            const menuContainers = document.querySelectorAll('.upload-picker, [data-cy-upload-picker-menu], .popover__wrapper [role="menu"]');
-            menuContainers.forEach(container => {
-                // Check if already injected
-                if (container.querySelector('[data-cy-upload-picker-menu-entry="motrix-download"]') ||
-                    container.querySelector('#motrix-dom-menu-entry')) {
+            // Keep header shortcut button attached
+            attachHeaderButton();
+
+            // Find open upload picker or menu popovers
+            const openMenuLists = document.querySelectorAll('.popover__wrapper ul[role="menu"], [data-cy-upload-picker-menu] ul[role="menu"], .popover__wrapper .action-menu');
+            openMenuLists.forEach(menuList => {
+                // If entry already present, skip
+                if (menuList.querySelector('[data-cy-upload-picker-menu-entry="motrix-download"]') ||
+                    menuList.querySelector('#motrix-popover-menu-entry')) {
                     return;
                 }
 
-                // Find "Create new" section or menu list
-                const menuList = container.querySelector('ul[role="menu"]') || container.querySelector('ul') || container;
-                if (!menuList) return;
-
                 // Create clean menu item matching Nextcloud styling
                 const li = document.createElement('li');
-                li.id = 'motrix-dom-menu-entry';
+                li.id = 'motrix-popover-menu-entry';
+                li.className = 'action-menu__item';
                 li.setAttribute('role', 'presentation');
 
                 const btn = document.createElement('button');
                 btn.type = 'button';
-                btn.className = 'upload-picker__menu-entry button-vue';
+                btn.className = 'action-button action-button--primary upload-picker__menu-entry button-vue';
                 btn.setAttribute('role', 'menuitem');
                 btn.setAttribute('data-cy-upload-picker-menu-entry', 'motrix-download');
-                btn.style.cssText = 'display: flex; align-items: center; width: 100%; text-align: left; cursor: pointer;';
 
                 btn.innerHTML = `
-                    <span class="motrix-menu-icon">${MOTRIX_SVG_ICON}</span>
-                    <span class="action-text">Download with Motrix</span>
+                    <span class="action-button__icon motrix-menu-icon">${MOTRIX_SVG_ICON}</span>
+                    <span class="action-button__title">Download with Motrix</span>
                 `;
 
                 btn.addEventListener('click', (e) => {
@@ -652,7 +691,7 @@
                     e.stopPropagation();
 
                     // Close menu
-                    const trigger = document.querySelector('[data-cy-upload-picker-trigger], #controls .new');
+                    const trigger = document.querySelector('[data-cy-upload-picker] button, .upload-picker button');
                     if (trigger) trigger.click();
 
                     openMotrixModal(getCurrentFolder());
@@ -661,37 +700,9 @@
                 li.appendChild(btn);
                 menuList.appendChild(li);
             });
-
-            // Also attach quick action button in header breadcrumbs if not present
-            attachQuickHeaderButton();
         });
 
         observer.observe(document.body, { childList: true, subtree: true });
-    }
-
-    /**
-     * Attaches a quick Motrix button directly in the Files breadcrumb / control bar.
-     */
-    function attachQuickHeaderButton() {
-        if (document.getElementById('motrix-quick-header-btn')) return;
-
-        const breadcrumbs = document.querySelector('.files-list__breadcrumbs, #controls .actions');
-        if (breadcrumbs) {
-            const quickBtn = document.createElement('button');
-            quickBtn.id = 'motrix-quick-header-btn';
-            quickBtn.className = 'motrix-quick-action-btn';
-            quickBtn.type = 'button';
-            quickBtn.title = 'Download to this folder with Motrix';
-            quickBtn.innerHTML = `
-                ${MOTRIX_SVG_ICON}
-                <span>Motrix</span>
-            `;
-            quickBtn.addEventListener('click', () => {
-                openMotrixModal(getCurrentFolder());
-            });
-
-            breadcrumbs.appendChild(quickBtn);
-        }
     }
 
     /**
@@ -730,20 +741,33 @@
     function init() {
         console.log('[Motrix] Initializing Nextcloud Files shortcut integration...');
 
+        // Clean up any old duplicate buttons
+        const oldQuick = document.getElementById('motrix-quick-header-btn');
+        if (oldQuick) oldQuick.remove();
+
+        // Attach header button
+        attachHeaderButton();
+
         // Try immediate registration
         registerInNewFileMenu();
 
-        // Retry registration at intervals until Nextcloud Vue scope is ready
+        // Retry registration at intervals until Nextcloud Vue scope / newFileMenu is ready
         let attempts = 0;
         const regInterval = setInterval(() => {
             attempts++;
+            attachHeaderButton();
             if (registerInNewFileMenu() || attempts > 20) {
+                if (registerInNewFileMenu()) {
+                    clearInterval(regInterval);
+                }
+            }
+            if (attempts > 30) {
                 clearInterval(regInterval);
             }
         }, 300);
 
-        // Attach fallback DOM observer
-        attachDOMMenuObserver();
+        // Attach popover menu observer
+        attachPopoverMenuObserver();
 
         // Attach global drop listener
         attachGlobalDropListener();
