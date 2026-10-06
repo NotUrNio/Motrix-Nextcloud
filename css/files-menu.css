@@ -1,0 +1,419 @@
+/**
+ * Motrix Nextcloud App - Files Menu & Shortcut Styles
+ */
+
+/* Menu Entry Icon Styling */
+.motrix-menu-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-right: 12px;
+    vertical-align: middle;
+}
+
+.motrix-menu-icon svg {
+    width: 18px;
+    height: 18px;
+    stroke: var(--color-primary-element, #0082c9);
+}
+
+/* Modal Overlay */
+.motrix-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: motrixFadeIn 0.2s ease-out;
+}
+
+/* Modal Box */
+.motrix-modal {
+    background: var(--color-main-background, #181b1f);
+    color: var(--color-main-text, #ffffff);
+    border: 1px solid var(--color-border, #333842);
+    border-radius: 14px;
+    width: 90%;
+    max-width: 560px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    animation: motrixSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    font-family: var(--font-face, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+}
+
+/* Modal Header */
+.motrix-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-border, #333842);
+    background: var(--color-background-hover, rgba(255, 255, 255, 0.03));
+}
+
+.motrix-modal-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 17px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.motrix-modal-title svg {
+    width: 24px;
+    height: 24px;
+    color: var(--color-primary-element, #0082c9);
+}
+
+.motrix-modal-close {
+    background: transparent;
+    border: none;
+    color: var(--color-text-maxcontrast, #888);
+    font-size: 20px;
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 4px 8px;
+    line-height: 1;
+    transition: background 0.15s, color 0.15s;
+}
+
+.motrix-modal-close:hover {
+    background: var(--color-background-hover, rgba(255, 255, 255, 0.1));
+    color: var(--color-main-text, #fff);
+}
+
+/* Tabs */
+.motrix-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--color-border, #333842);
+    padding: 0 20px;
+    background: var(--color-background-hover, rgba(255, 255, 255, 0.02));
+}
+
+.motrix-tab-btn {
+    background: transparent;
+    border: none;
+    padding: 12px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text-maxcontrast, #aaa);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+}
+
+.motrix-tab-btn:hover {
+    color: var(--color-main-text, #fff);
+}
+
+.motrix-tab-btn.active {
+    color: var(--color-primary-element, #0082c9);
+    border-bottom-color: var(--color-primary-element, #0082c9);
+    font-weight: 600;
+}
+
+/* Modal Body */
+.motrix-modal-body {
+    padding: 20px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.motrix-tab-content {
+    display: none;
+}
+
+.motrix-tab-content.active {
+    display: block;
+}
+
+/* Target Folder Banner */
+.motrix-folder-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--color-background-hover, rgba(255, 255, 255, 0.05));
+    border: 1px solid var(--color-border, #333842);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: var(--color-text-maxcontrast, #aaa);
+}
+
+.motrix-folder-badge strong {
+    color: var(--color-primary-element, #0082c9);
+    word-break: break-all;
+}
+
+/* Form Groups */
+.motrix-form-group {
+    margin-bottom: 16px;
+}
+
+.motrix-form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: var(--color-main-text, #fff);
+}
+
+.motrix-form-group input,
+.motrix-form-group textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    background: var(--color-main-background, #14171a);
+    border: 1px solid var(--color-border, #383d47);
+    border-radius: 8px;
+    color: var(--color-main-text, #fff);
+    font-size: 14px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.motrix-form-group input:focus,
+.motrix-form-group textarea:focus {
+    border-color: var(--color-primary-element, #0082c9);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 130, 201, 0.25);
+}
+
+.motrix-form-group textarea {
+    min-height: 80px;
+    resize: vertical;
+    font-family: inherit;
+}
+
+.motrix-hint {
+    font-size: 12px;
+    color: var(--color-text-maxcontrast, #888);
+    margin-top: 4px;
+}
+
+/* Drop Zone Area */
+.motrix-dropzone {
+    border: 2px dashed var(--color-border, #444b58);
+    border-radius: 10px;
+    padding: 18px;
+    text-align: center;
+    background: var(--color-background-hover, rgba(255, 255, 255, 0.02));
+    margin-bottom: 16px;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.motrix-dropzone.dragover {
+    border-color: var(--color-primary-element, #0082c9);
+    background: rgba(0, 130, 201, 0.08);
+}
+
+.motrix-dropzone-icon {
+    font-size: 24px;
+    margin-bottom: 4px;
+}
+
+.motrix-dropzone-text {
+    font-size: 13px;
+    color: var(--color-text-maxcontrast, #aaa);
+}
+
+/* Modal Actions */
+.motrix-modal-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-border, #333842);
+}
+
+.motrix-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background 0.15s, opacity 0.15s;
+}
+
+.motrix-btn-primary {
+    background: var(--color-primary-element, #0082c9);
+    color: #ffffff;
+}
+
+.motrix-btn-primary:hover:not(:disabled) {
+    background: var(--color-primary-element-hover, #006da8);
+}
+
+.motrix-btn-secondary {
+    background: var(--color-background-hover, rgba(255, 255, 255, 0.08));
+    color: var(--color-main-text, #fff);
+    border-color: var(--color-border, #383d47);
+}
+
+.motrix-btn-secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.motrix-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* Live Task Progress Card */
+.motrix-task-card {
+    background: var(--color-background-hover, rgba(255, 255, 255, 0.04));
+    border: 1px solid var(--color-border, #383d47);
+    border-radius: 10px;
+    padding: 14px;
+    margin-top: 16px;
+    animation: motrixFadeIn 0.25s ease-out;
+}
+
+.motrix-task-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.motrix-task-name {
+    font-weight: 600;
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 380px;
+}
+
+.motrix-task-status-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.motrix-status-active {
+    background: rgba(0, 130, 201, 0.2);
+    color: #38bdf8;
+}
+
+.motrix-status-complete {
+    background: rgba(34, 197, 94, 0.2);
+    color: #4ade80;
+}
+
+.motrix-status-error {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+}
+
+.motrix-progress-bar-bg {
+    width: 100%;
+    height: 7px;
+    background: var(--color-border, #333842);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.motrix-progress-bar-fill {
+    height: 100%;
+    background: var(--color-primary-element, #0082c9);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.motrix-task-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--color-text-maxcontrast, #888);
+}
+
+/* Toast Message */
+.motrix-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--color-main-background, #1f232b);
+    color: var(--color-main-text, #fff);
+    border: 1px solid var(--color-primary-element, #0082c9);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    padding: 12px 18px;
+    border-radius: 10px;
+    z-index: 100001;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    animation: motrixSlideUp 0.25s ease-out;
+}
+
+.motrix-toast-success {
+    border-color: #22c55e;
+}
+
+.motrix-toast-error {
+    border-color: #ef4444;
+}
+
+/* Quick Action Bar Button */
+.motrix-quick-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    margin-left: 8px;
+    border-radius: 6px;
+    background: transparent;
+    border: 1px solid var(--color-border, #383d47);
+    color: var(--color-main-text, #fff);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.motrix-quick-action-btn:hover {
+    background: var(--color-background-hover, rgba(255, 255, 255, 0.08));
+    border-color: var(--color-primary-element, #0082c9);
+}
+
+.motrix-quick-action-btn svg {
+    width: 16px;
+    height: 16px;
+    stroke: var(--color-primary-element, #0082c9);
+}
+
+/* Animations */
+@keyframes motrixFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes motrixSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(14px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}

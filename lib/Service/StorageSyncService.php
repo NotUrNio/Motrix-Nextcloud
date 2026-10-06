@@ -49,16 +49,32 @@ class StorageSyncService {
             ];
         }
 
+        $cleanTarget = trim($targetSubfolder, '/');
+
+        // Check if the file is already inside the user's Nextcloud storage directory
+        // Motrix saveDir prefix is /downloads, which maps to Nextcloud's data directory.
+        $userStoragePrefix = '/downloads/' . $userId . '/files';
+        if (!empty($finalPath) && str_starts_with($finalPath, $userStoragePrefix)) {
+            // Already inside user storage! Simply scan Nextcloud filecache.
+            $scanResult = $this->scanPath($userId, $cleanTarget);
+            return [
+                'synced' => true,
+                'direct' => true,
+                'destination' => ($cleanTarget !== '' ? $cleanTarget . '/' : '') . basename($finalPath),
+                'fileName' => basename($finalPath),
+                'scan' => $scanResult,
+            ];
+        }
+
         try {
             $userFolder = $this->rootFolder->getUserFolder($userId);
 
             // Ensure destination folder exists
-            $targetSubfolder = trim($targetSubfolder, '/');
-            if (!$userFolder->nodeExists($targetSubfolder)) {
-                $userFolder->newFolder($targetSubfolder);
+            if ($cleanTarget !== '' && !$userFolder->nodeExists($cleanTarget)) {
+                $userFolder->newFolder($cleanTarget);
             }
 
-            $destFolder = $userFolder->get($targetSubfolder);
+            $destFolder = $cleanTarget !== '' ? $userFolder->get($cleanTarget) : $userFolder;
             $fileName = basename($finalPath);
 
             // Avoid collisions
@@ -126,6 +142,47 @@ class StorageSyncService {
                     fclose($stream);
                 }
             }
+        }
+    }
+
+    /**
+     * Rescans a folder or user storage in Nextcloud so files appear immediately in the UI.
+     *
+     * @param string $userId Nextcloud user ID
+     * @param string $targetFolder Relative folder inside user storage (e.g. 'Movies' or '')
+     * @return array
+     */
+    public function scanPath(string $userId, string $targetFolder = ''): array {
+        try {
+            $userFolder = $this->rootFolder->getUserFolder($userId);
+            $cleanFolder = trim($targetFolder, '/');
+
+            if ($cleanFolder !== '' && $userFolder->nodeExists($cleanFolder)) {
+                $node = $userFolder->get($cleanFolder);
+            } else {
+                $node = $userFolder;
+            }
+
+            $storage = $node->getStorage();
+            $internalPath = $node->getInternalPath();
+            $scanner = $storage->getScanner();
+            $scanner->scan($internalPath);
+
+            return [
+                'success' => true,
+                'path' => $cleanFolder,
+            ];
+        } catch (\Throwable $e) {
+            $this->logger->error('Failed to scan Nextcloud storage path: ' . $e->getMessage(), [
+                'app' => 'motrix',
+                'user' => $userId,
+                'folder' => $targetFolder,
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
         }
     }
 }

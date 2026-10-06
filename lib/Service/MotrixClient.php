@@ -80,21 +80,44 @@ class MotrixClient {
 
             $body = $response->getBody();
             $data = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
-
-            if (isset($data['error'])) {
-                $errCode = $data['error']['code'] ?? -1;
-                $errMsg = $data['error']['message'] ?? 'Unknown JSON-RPC error';
-                throw new RuntimeException("Motrix JSON-RPC error [$errCode]: $errMsg");
-            }
-
-            return $data['result'] ?? null;
         } catch (\Throwable $e) {
-            $this->logger->error('Motrix MDXP call failed: ' . $e->getMessage(), [
-                'app' => 'motrix',
-                'method' => $method,
-            ]);
-            throw new RuntimeException('Unable to communicate with Motrix: ' . $e->getMessage(), 0, $e);
+            // Fallback to native curl to bypass Nextcloud internal host restriction
+            if (function_exists('curl_init')) {
+                $ch = curl_init($endpoint);
+                $curlHeaders = [];
+                foreach ($headers as $k => $v) {
+                    $curlHeaders[] = "$k: $v";
+                }
+                curl_setopt_array($ch, [
+                    CURLOPT_POST => true,
+                    CURLOPT_POSTFIELDS => json_encode($payload, JSON_THROW_ON_ERROR),
+                    CURLOPT_HTTPHEADER => $curlHeaders,
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT => 15,
+                    CURLOPT_CONNECTTIMEOUT => 5,
+                ]);
+                $body = curl_exec($ch);
+                $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $curlErr = curl_error($ch);
+                curl_close($ch);
+
+                if ($body === false || $statusCode < 200 || $statusCode >= 300) {
+                    $msg = $curlErr ? $curlErr : "HTTP status $statusCode";
+                    throw new RuntimeException("Motrix call failed: $msg (orig: {$e->getMessage()})", 0, $e);
+                }
+                $data = json_decode((string)$body, true, 512, JSON_THROW_ON_ERROR);
+            } else {
+                throw new RuntimeException('Unable to communicate with Motrix: ' . $e->getMessage(), 0, $e);
+            }
         }
+
+        if (isset($data['error'])) {
+            $errCode = $data['error']['code'] ?? -1;
+            $errMsg = $data['error']['message'] ?? 'Unknown JSON-RPC error';
+            throw new RuntimeException("Motrix JSON-RPC error [$errCode]: $errMsg");
+        }
+
+        return $data['result'] ?? null;
     }
 
     public function getEngineStatus(): array {

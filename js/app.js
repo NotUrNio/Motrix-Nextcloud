@@ -235,6 +235,11 @@
                 payload.magnet = document.getElementById('input-task-magnet').value.trim();
             }
 
+            const folderInput = document.getElementById('input-task-folder');
+            if (folderInput && folderInput.value.trim()) {
+                payload.targetFolder = folderInput.value.trim();
+            }
+
             try {
                 const res = await fetch(getApiUrl('/api/tasks'), {
                     method: 'POST',

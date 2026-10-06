@@ -9,6 +9,7 @@ use OCA\Motrix\Service\StorageSyncService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\Http\Http;
+use OCP\Files\IRootFolder;
 use OCP\IConfig;
 use OCP\IRequest;
 use OCP\IUserSession;
@@ -17,6 +18,7 @@ class ApiController extends Controller {
     private MotrixClient $motrixClient;
     private StorageSyncService $storageSyncService;
     private IUserSession $userSession;
+    private IRootFolder $rootFolder;
     private IConfig $config;
 
     public function __construct(
@@ -25,12 +27,14 @@ class ApiController extends Controller {
         MotrixClient $motrixClient,
         StorageSyncService $storageSyncService,
         IUserSession $userSession,
+        IRootFolder $rootFolder,
         IConfig $config
     ) {
         parent::__construct($appName, $request);
         $this->motrixClient = $motrixClient;
         $this->storageSyncService = $storageSyncService;
         $this->userSession = $userSession;
+        $this->rootFolder = $rootFolder;
         $this->config = $config;
     }
 
@@ -82,15 +86,61 @@ class ApiController extends Controller {
     /**
      * @NoAdminRequired
      */
+    public function getTask(string $taskId, ?string $targetFolder = null): DataResponse {
+        try {
+            $task = $this->motrixClient->getTask($taskId);
+            if (!$task) {
+                return new DataResponse(['success' => false, 'error' => 'Task not found'], Http::STATUS_NOT_FOUND);
+            }
+
+            // Auto-rescan folder if task has finished
+            $status = $task['status'] ?? '';
+            if (in_array($status, ['complete', 'completed', 'stopped'], true)) {
+                $user = $this->userSession->getUser();
+                if ($user) {
+                    $this->storageSyncService->scanPath($user->getUID(), $targetFolder ?? '');
+                }
+            }
+
+            return new DataResponse(['success' => true, 'task' => $task]);
+        } catch (\Throwable $e) {
+            return new DataResponse(['success' => false, 'error' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * @NoAdminRequired
+     */
     public function addTask(
         string $kind = 'url',
         ?string $url = null,
         ?string $magnet = null,
         ?string $torrent = null,
         ?string $saveDir = null,
-        ?string $filename = null
+        ?string $filename = null,
+        ?string $targetFolder = null
     ): DataResponse {
         try {
+            $user = $this->userSession->getUser();
+            $userId = $user ? $user->getUID() : 'Admin';
+
+            // Resolve target directory inside Nextcloud user storage
+            if (empty($saveDir)) {
+                $baseSaveDir = $this->motrixClient->getDefaultSaveDir();
+                $cleanFolder = trim($targetFolder ?? '', '/');
+
+                // Ensure destination folder exists in Nextcloud
+                if ($user !== null && $cleanFolder !== '') {
+                    $userFolder = $this->rootFolder->getUserFolder($userId);
+                    if (!$userFolder->nodeExists($cleanFolder)) {
+                        $userFolder->newFolder($cleanFolder);
+                    }
+                }
+
+                // Path in Motrix container (/downloads -> /var/lib/.../data)
+                $saveDir = rtrim($baseSaveDir, '/') . '/' . $userId . '/files' . ($cleanFolder !== '' ? '/' . $cleanFolder : '');
+            }
+
             if ($kind === 'url') {
                 if (empty($url)) {
                     return new DataResponse(['success' => false, 'error' => 'URL is required'], Http::STATUS_BAD_REQUEST);
@@ -110,7 +160,12 @@ class ApiController extends Controller {
                 return new DataResponse(['success' => false, 'error' => "Unsupported task kind: $kind"], Http::STATUS_BAD_REQUEST);
             }
 
-            return new DataResponse(['success' => true, 'task' => $task]);
+            return new DataResponse([
+                'success' => true,
+                'task' => $task,
+                'saveDir' => $saveDir,
+                'targetFolder' => $targetFolder ?? '',
+            ]);
         } catch (\Throwable $e) {
             return new DataResponse(['success' => false, 'error' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
@@ -200,6 +255,22 @@ class ApiController extends Controller {
         return new DataResponse(['success' => true]);
     }
 
+    /**
+     * @NoAdminRequired
+     */
+    public function scanPath(?string $targetFolder = null): DataResponse {
+        $user = $this->userSession->getUser();
+        if (!$user) {
+            return new DataResponse(['success' => false, 'error' => 'User not logged in'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        $res = $this->storageSyncService->scanPath($user->getUID(), $targetFolder ?? '');
+        return new DataResponse($res);
+    }
+
+    /**
+     * @NoAdminRequired
+     */
     public function testConnection(): DataResponse {
         $result = $this->motrixClient->testConnection();
         return new DataResponse($result);

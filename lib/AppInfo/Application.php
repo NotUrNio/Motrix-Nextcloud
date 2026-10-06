@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace OCA\Motrix\AppInfo;
 
+use OCA\Files\Event\LoadAdditionalScriptsEvent;
+use OCA\Motrix\Listener\FilesLoadAdditionalScriptsListener;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IBootContext;
@@ -17,7 +19,10 @@ class Application extends App implements IBootstrap {
     }
 
     public function register(IRegistrationContext $context): void {
-        // Services are auto-wired by Nextcloud's container
+        $context->registerEventListener(
+            LoadAdditionalScriptsEvent::class,
+            FilesLoadAdditionalScriptsListener::class
+        );
     }
 
     public function boot(IBootContext $context): void {
