@@ -84,18 +84,22 @@
     }
 
     /**
-     * Formats remaining time in seconds to human-readable string.
+     * Formats remaining time in seconds to human-readable string (hours, minutes, seconds).
      */
     function formatEta(seconds) {
         if (!seconds || seconds <= 0 || !isFinite(seconds)) return '';
-        const s = Math.round(seconds);
-        if (s < 60) return `ETA: ${s}s`;
-        const m = Math.floor(s / 60);
-        const remS = s % 60;
-        if (m < 60) return `ETA: ${m}m ${remS}s`;
-        const h = Math.floor(m / 60);
-        const remM = m % 60;
-        return `ETA: ${h}h ${remM}m`;
+        const totalSec = Math.round(seconds);
+        const h = Math.floor(totalSec / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const s = totalSec % 60;
+
+        if (h > 0) {
+            return `ETA: ${h}h ${m}m ${s}s`;
+        }
+        if (m > 0) {
+            return `ETA: ${m}m ${s}s`;
+        }
+        return `ETA: ${s}s`;
     }
 
     /**

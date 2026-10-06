@@ -20,6 +20,22 @@
         return formatBytes(bytesPerSec) + '/s';
     };
 
+    const formatEta = (seconds) => {
+        if (!seconds || seconds <= 0 || !isFinite(seconds)) return '';
+        const totalSec = Math.round(seconds);
+        const h = Math.floor(totalSec / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const s = totalSec % 60;
+
+        if (h > 0) {
+            return `ETA: ${h}h ${m}m ${s}s`;
+        }
+        if (m > 0) {
+            return `ETA: ${m}m ${s}s`;
+        }
+        return `ETA: ${s}s`;
+    };
+
     const getRequestToken = () => {
         return window.oc_requesttoken || (window.OC && window.OC.requestToken) || document.head?.dataset?.requesttoken || '';
     };
@@ -81,7 +97,7 @@
             const done = formatBytes(t.bytesDone || 0);
             const total = t.bytesTotal ? formatBytes(t.bytesTotal) : 'Unknown size';
             const speed = t.speedBps ? formatSpeed(t.speedBps) : '0 B/s';
-            const eta = t.etaSec ? `ETA: ${Math.round(t.etaSec)}s` : '';
+            const eta = formatEta(t.etaSec);
 
             let actionsHtml = '';
             if (t.status === 'downloading') {
