@@ -417,6 +417,11 @@
     color: #38bdf8;
 }
 
+.motrix-status-paused {
+    background: rgba(234, 179, 8, 0.2);
+    color: #facc15;
+}
+
 .motrix-status-complete {
     background: rgba(34, 197, 94, 0.2);
     color: #4ade80;
@@ -443,11 +448,69 @@
     transition: width 0.3s ease;
 }
 
+.motrix-progress-bar-fill.active {
+    background-image: linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.2) 25%,
+        transparent 25%,
+        transparent 50%,
+        rgba(255, 255, 255, 0.2) 50%,
+        rgba(255, 255, 255, 0.2) 75%,
+        transparent 75%,
+        transparent
+    );
+    background-size: 24px 24px;
+    animation: motrixProgressStripes 1.2s linear infinite;
+}
+
+@keyframes motrixProgressStripes {
+    0% { background-position: 0 0; }
+    100% { background-position: 24px 0; }
+}
+
 .motrix-task-meta {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     font-size: 12px;
     color: var(--color-text-maxcontrast, #888);
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.motrix-task-meta-stats {
+    flex: 1;
+    min-width: 0;
+}
+
+.motrix-task-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.motrix-mini-btn {
+    background: var(--color-background-hover, rgba(255, 255, 255, 0.08));
+    border: 1px solid var(--color-border, #383d47);
+    color: var(--color-main-text, #fff);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    line-height: 1.2;
+    transition: all 0.15s ease;
+}
+
+.motrix-mini-btn:hover {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: var(--color-primary-element, #0082c9);
+}
+
+.motrix-mini-btn-danger:hover {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: #ef4444;
+    color: #fca5a5;
 }
 
 /* Toast Message */

@@ -77,6 +77,28 @@
     }
 
     /**
+     * Helper to get request token reliably across Nextcloud versions.
+     */
+    function getRequestToken() {
+        return window.oc_requesttoken || (window.OC && window.OC.requestToken) || document.head?.dataset?.requesttoken || '';
+    }
+
+    /**
+     * Formats remaining time in seconds to human-readable string.
+     */
+    function formatEta(seconds) {
+        if (!seconds || seconds <= 0 || !isFinite(seconds)) return '';
+        const s = Math.round(seconds);
+        if (s < 60) return `ETA: ${s}s`;
+        const m = Math.floor(s / 60);
+        const remS = s % 60;
+        if (m < 60) return `ETA: ${m}m ${remS}s`;
+        const h = Math.floor(m / 60);
+        const remM = m % 60;
+        return `ETA: ${h}h ${remM}m`;
+    }
+
+    /**
      * Shows a toast notification.
      */
     function showToast(message, type = 'info') {
@@ -286,10 +308,18 @@
         // Settings Buttons
         document.getElementById('motrix-test-settings-btn').addEventListener('click', testSettings);
         document.getElementById('motrix-save-settings-btn').addEventListener('click', saveSettings);
+
+        // Check and render active downloads immediately upon opening the modal
+        checkAndDisplayActiveDownloads(folder);
     }
 
     /**
-     * Closes the Motrix modal.
+     * Set of completed task IDs in this session to prevent spamming rescan & notifications.
+     */
+    const sessionCompletedTasks = new Set();
+
+    /**
+     * Closes the Motrix modal and cleanly stops background polling.
      */
     function closeMotrixModal() {
         if (pollInterval) {
@@ -302,13 +332,311 @@
     }
 
     /**
+     * Robust parser for Motrix task metrics.
+     */
+    function parseTaskMetrics(t) {
+        if (!t) return null;
+        const total = Number(t.bytesTotal ?? t.totalLength ?? t.size ?? 0);
+        const completed = Number(t.bytesDone ?? t.completedLength ?? t.downloaded ?? 0);
+
+        let percent = 0;
+        if (t.progress != null && !isNaN(t.progress)) {
+            const p = Number(t.progress);
+            percent = (p <= 1 && p > 0) ? (p * 100).toFixed(1) : Math.min(100, p.toFixed(1));
+        } else if (total > 0) {
+            percent = Math.min(100, ((completed / total) * 100).toFixed(1));
+        }
+
+        const speed = Number(t.speedBps ?? t.downloadSpeed ?? 0);
+        const etaSec = Number(t.etaSec ?? t.eta ?? 0);
+        const eta = formatEta(etaSec);
+        const rawStatus = String(t.status || 'downloading').toLowerCase();
+        const status = (rawStatus === 'active' || rawStatus === 'waiting') ? 'downloading' : rawStatus;
+        const name = t.name || t.filename || 'Download Task';
+        const id = t.id || t.taskId;
+
+        return {
+            id,
+            name,
+            status,
+            percent: parseFloat(percent) || 0,
+            percentDisplay: (parseFloat(percent) || 0) + '%',
+            completed,
+            completedDisplay: formatBytes(completed),
+            total,
+            totalDisplay: total > 0 ? formatBytes(total) : 'Unknown size',
+            speed,
+            speedDisplay: formatSpeed(speed),
+            eta,
+            error: t.error || null,
+        };
+    }
+
+    /**
+     * Initializes action handlers on the progress container (delegated once).
+     */
+    function initProgressContainerHandlers() {
+        const container = document.getElementById('motrix-progress-container');
+        if (!container || container._hasHandlers) return;
+        container._hasHandlers = true;
+
+        container.addEventListener('click', async (e) => {
+            const btn = e.target.closest('.motrix-mini-btn');
+            if (!btn) return;
+            const action = btn.getAttribute('data-action');
+            const taskId = btn.getAttribute('data-task-id');
+            if (!action || !taskId) return;
+
+            btn.disabled = true;
+
+            try {
+                if (action === 'pause') {
+                    btn.textContent = 'Pausing...';
+                    await fetch(`/apps/motrix/api/tasks/${taskId}/pause`, {
+                        method: 'POST',
+                        headers: { 'requesttoken': getRequestToken() },
+                    });
+                } else if (action === 'resume') {
+                    btn.textContent = 'Resuming...';
+                    await fetch(`/apps/motrix/api/tasks/${taskId}/resume`, {
+                        method: 'POST',
+                        headers: { 'requesttoken': getRequestToken() },
+                    });
+                } else if (action === 'cancel') {
+                    if (!confirm('Cancel and remove this download task?')) {
+                        btn.disabled = false;
+                        return;
+                    }
+                    btn.textContent = 'Removing...';
+                    let delRes = await fetch(`/apps/motrix/api/tasks/${taskId}`, {
+                        method: 'DELETE',
+                        headers: { 'requesttoken': getRequestToken() },
+                    });
+                    if (!delRes.ok) {
+                        await fetch(`/apps/motrix/api/tasks/${taskId}/delete`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'requesttoken': getRequestToken()
+                            },
+                        });
+                    }
+                    const card = document.getElementById(`motrix-task-${taskId}`);
+                    if (card) card.remove();
+                    showToast('Download task removed', 'info');
+                }
+            } catch (err) {
+                console.error('[Motrix] Action failed:', err);
+                showToast(`Action failed: ${err.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    }
+
+    /**
+     * Renders or smoothly updates a live task card in the DOM.
+     */
+    function updateOrRenderTaskCard(m) {
+        const container = document.getElementById('motrix-progress-container');
+        if (!container || !m || !m.id) return;
+
+        container.style.display = 'block';
+
+        const isFinished = m.status === 'completed' || m.status === 'complete' || m.percent >= 100;
+        const badgeClass = isFinished
+            ? 'motrix-status-complete'
+            : (m.status === 'error' || m.status === 'failed')
+                ? 'motrix-status-error'
+                : (m.status === 'paused')
+                    ? 'motrix-status-paused'
+                    : 'motrix-status-active';
+
+        const statusLabel = isFinished ? 'COMPLETE' : m.status.toUpperCase();
+
+        const metaStatsHtml = `
+            <span>${m.percentDisplay} (${m.completedDisplay} / ${m.totalDisplay})</span>
+            ${(m.status === 'downloading' && m.speed > 0) ? ` • <span>${m.speedDisplay}</span>` : ''}
+            ${m.eta ? ` • <span>${m.eta}</span>` : ''}
+            ${m.error ? ` • <span style="color: #f87171;">${m.error}</span>` : ''}
+        `;
+
+        let actionsHtml = '';
+        if (m.status === 'downloading') {
+            actionsHtml += `<button type="button" class="motrix-mini-btn" data-action="pause" data-task-id="${m.id}" title="Pause download">⏸ Pause</button>`;
+        } else if (m.status === 'paused') {
+            actionsHtml += `<button type="button" class="motrix-mini-btn" data-action="resume" data-task-id="${m.id}" title="Resume download">▶ Resume</button>`;
+        }
+        actionsHtml += `<button type="button" class="motrix-mini-btn motrix-mini-btn-danger" data-action="cancel" data-task-id="${m.id}" title="Remove download">✕ Remove</button>`;
+
+        let card = document.getElementById(`motrix-task-${m.id}`);
+        if (!card) {
+            card = document.createElement('div');
+            card.className = 'motrix-task-card';
+            card.id = `motrix-task-${m.id}`;
+            card.setAttribute('data-task-id', m.id);
+            card.innerHTML = `
+                <div class="motrix-task-card-header">
+                    <span class="motrix-task-name" title="${m.name}">⚡ ${m.name}</span>
+                    <span class="motrix-task-status-badge ${badgeClass}">${statusLabel}</span>
+                </div>
+                <div class="motrix-progress-bar-bg">
+                    <div class="motrix-progress-bar-fill ${m.status === 'downloading' ? 'active' : ''}" style="width: ${m.percent}%;"></div>
+                </div>
+                <div class="motrix-task-meta">
+                    <div class="motrix-task-meta-stats">${metaStatsHtml}</div>
+                    <div class="motrix-task-actions">${actionsHtml}</div>
+                </div>
+            `;
+            container.prepend(card);
+        } else {
+            const nameEl = card.querySelector('.motrix-task-name');
+            if (nameEl && m.name) {
+                nameEl.textContent = '⚡ ' + m.name;
+                nameEl.title = m.name;
+            }
+
+            const badgeEl = card.querySelector('.motrix-task-status-badge');
+            if (badgeEl) {
+                badgeEl.className = `motrix-task-status-badge ${badgeClass}`;
+                badgeEl.textContent = statusLabel;
+            }
+
+            const fillEl = card.querySelector('.motrix-progress-bar-fill');
+            if (fillEl) {
+                fillEl.style.width = `${m.percent}%`;
+                if (m.status === 'downloading') {
+                    fillEl.classList.add('active');
+                } else {
+                    fillEl.classList.remove('active');
+                }
+            }
+
+            const metaEl = card.querySelector('.motrix-task-meta-stats');
+            if (metaEl) {
+                metaEl.innerHTML = metaStatsHtml;
+            }
+
+            const actionsEl = card.querySelector('.motrix-task-actions');
+            if (actionsEl) {
+                actionsEl.innerHTML = actionsHtml;
+            }
+        }
+    }
+
+    /**
+     * Checks if there are active downloads when modal is opened and displays them live.
+     */
+    async function checkAndDisplayActiveDownloads(targetFolder) {
+        initProgressContainerHandlers();
+
+        try {
+            const resp = await fetch('/apps/motrix/api/tasks', {
+                headers: { 'requesttoken': getRequestToken() }
+            });
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (!data.success || !Array.isArray(data.tasks)) return;
+
+            // Find active or downloading tasks
+            const activeTasks = data.tasks.filter(t => {
+                const st = (t.status || '').toLowerCase();
+                return st === 'downloading' || st === 'active' || st === 'waiting' || st === 'paused';
+            });
+
+            if (activeTasks.length > 0) {
+                activeTasks.forEach(t => {
+                    const m = parseTaskMetrics(t);
+                    if (m) updateOrRenderTaskCard(m);
+                });
+
+                // Start polling right away
+                startTaskPolling(activeTasks[0].id, targetFolder);
+            }
+        } catch (e) {
+            console.debug('[Motrix] Error checking active downloads:', e);
+        }
+    }
+
+    /**
+     * Polls active task status every 1000ms and updates UI in real-time.
+     */
+    function startTaskPolling(taskId, targetFolder) {
+        if (pollInterval) clearInterval(pollInterval);
+
+        const pollTick = async () => {
+            const container = document.getElementById('motrix-progress-container');
+            if (!container) {
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                }
+                return;
+            }
+
+            try {
+                const resp = await fetch('/apps/motrix/api/tasks', {
+                    headers: { 'requesttoken': getRequestToken() }
+                });
+                if (!resp.ok) return;
+                const data = await resp.json();
+                if (!data.success || !Array.isArray(data.tasks)) return;
+
+                const allTasks = data.tasks;
+
+                allTasks.forEach(t => {
+                    const m = parseTaskMetrics(t);
+                    if (!m) return;
+
+                    const isTargetTask = taskId && m.id === taskId;
+                    const isActive = m.status === 'downloading' || m.status === 'paused';
+                    const cardExists = !!document.getElementById(`motrix-task-${m.id}`);
+
+                    if (isTargetTask || isActive || cardExists) {
+                        updateOrRenderTaskCard(m);
+
+                        // If task just completed
+                        if ((m.status === 'complete' || m.status === 'completed' || m.percent >= 100) && !sessionCompletedTasks.has(m.id)) {
+                            sessionCompletedTasks.add(m.id);
+
+                            showToast(`✓ "${m.name}" download complete! Saved to Nextcloud.`, 'success');
+
+                            // Refresh folder in Files view
+                            refreshNextcloudFileList();
+
+                            // Trigger backend rescan
+                            fetch('/apps/motrix/api/scan', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'requesttoken': getRequestToken(),
+                                },
+                                body: JSON.stringify({ targetFolder: targetFolder || '' }),
+                            }).then(() => {
+                                refreshNextcloudFileList();
+                            }).catch(console.error);
+                        }
+                    }
+                });
+
+            } catch (err) {
+                console.debug('[Motrix] Error polling tasks:', err);
+            }
+        };
+
+        pollTick();
+        pollInterval = setInterval(pollTick, 1000);
+    }
+
+    /**
      * Handles starting a download task directly into Nextcloud storage.
      */
     async function handleStartDownload(targetFolder) {
         const urlInput = document.getElementById('motrix-url-input');
         const filenameInput = document.getElementById('motrix-filename-input');
         const startBtn = document.getElementById('motrix-start-btn');
-        const progressContainer = document.getElementById('motrix-progress-container');
+
+        initProgressContainerHandlers();
 
         const rawUrl = urlInput.value.trim();
         const customFilename = filenameInput.value.trim();
@@ -322,7 +650,6 @@
         startBtn.disabled = true;
         startBtn.innerHTML = '<span>Adding task...</span>';
 
-        let kind = 'url';
         let bodyPayload = {
             kind: 'url',
             url: rawUrl,
@@ -330,7 +657,6 @@
         };
 
         if (rawUrl.startsWith('magnet:?')) {
-            kind = 'magnet';
             bodyPayload = {
                 kind: 'magnet',
                 magnet: rawUrl,
@@ -347,7 +673,7 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'requesttoken': window.oc_requesttoken || OC.requestToken || '',
+                    'requesttoken': getRequestToken(),
                 },
                 body: JSON.stringify(bodyPayload),
             });
@@ -357,15 +683,40 @@
                 throw new Error(data.error || 'Failed to add task to Motrix');
             }
 
-            const taskId = data.task?.taskId || data.task?.id;
+            const rawTask = data.task;
+            const taskId = rawTask?.taskId || rawTask?.id || rawTask?.task?.id || null;
             activeTaskId = taskId;
+
+            // Clear inputs so user is ready for another download
+            urlInput.value = '';
+            filenameInput.value = '';
+
+            // Reset start button so user can add another download
+            startBtn.disabled = false;
+            startBtn.innerHTML = '<span>⚡ Add Another Download</span>';
 
             showToast(`Task started! Downloading to ${targetFolder ? '/' + targetFolder : '/'}...`, 'success');
 
-            // Render live progress inside modal
-            renderLiveTaskCard(data.task, targetFolder);
+            // Render placeholder card immediately while polling starts
+            if (rawTask) {
+                const initialMetric = parseTaskMetrics(rawTask) || {
+                    id: taskId || ('temp-' + Date.now()),
+                    name: customFilename || (rawUrl.split('?')[0].split('/').pop()) || 'Downloading...',
+                    status: 'downloading',
+                    percent: 0,
+                    percentDisplay: '0%',
+                    completed: 0,
+                    completedDisplay: '0 B',
+                    total: 0,
+                    totalDisplay: 'Calculating size...',
+                    speed: 0,
+                    speedDisplay: '0 B/s',
+                    eta: '',
+                };
+                updateOrRenderTaskCard(initialMetric);
+            }
 
-            // Poll task status
+            // Immediately start live polling
             startTaskPolling(taskId, targetFolder);
 
         } catch (err) {
@@ -376,124 +727,12 @@
     }
 
     /**
-     * Renders live task progress inside the modal.
-     */
-    function renderLiveTaskCard(task, targetFolder) {
-        const progressContainer = document.getElementById('motrix-progress-container');
-        if (!progressContainer) return;
-
-        progressContainer.style.display = 'block';
-        const taskName = task.name || task.filename || 'Downloading...';
-
-        progressContainer.innerHTML = `
-            <div class="motrix-task-card">
-                <div class="motrix-task-card-header">
-                    <span class="motrix-task-name" id="motrix-card-name" title="${taskName}">⚡ ${taskName}</span>
-                    <span class="motrix-task-status-badge motrix-status-active" id="motrix-card-status">DOWNLOADING</span>
-                </div>
-                <div class="motrix-progress-bar-bg">
-                    <div class="motrix-progress-bar-fill" id="motrix-card-fill" style="width: 0%;"></div>
-                </div>
-                <div class="motrix-task-meta">
-                    <span id="motrix-card-speed">Speed: 0 B/s</span>
-                    <span id="motrix-card-progress">0%</span>
-                    <span id="motrix-card-size">0 B</span>
-                </div>
-            </div>
-        `;
-    }
-
-    /**
-     * Polls active task status and triggers Nextcloud auto-rescan on finish.
-     */
-    function startTaskPolling(taskId, targetFolder) {
-        if (pollInterval) clearInterval(pollInterval);
-
-        pollInterval = setInterval(async () => {
-            if (!taskId) return;
-
-            try {
-                const resp = await fetch(`/apps/motrix/api/tasks/${taskId}?targetFolder=${encodeURIComponent(targetFolder)}`, {
-                    headers: {
-                        'requesttoken': window.oc_requesttoken || OC.requestToken || '',
-                    }
-                });
-
-                if (!resp.ok) return;
-                const data = await resp.json();
-                if (!data.success || !data.task) return;
-
-                const t = data.task;
-                const cardFill = document.getElementById('motrix-card-fill');
-                const cardStatus = document.getElementById('motrix-card-status');
-                const cardSpeed = document.getElementById('motrix-card-speed');
-                const cardProgress = document.getElementById('motrix-card-progress');
-                const cardSize = document.getElementById('motrix-card-size');
-                const cardName = document.getElementById('motrix-card-name');
-
-                if (cardName && t.name) {
-                    cardName.textContent = '⚡ ' + t.name;
-                }
-
-                const total = t.totalLength || t.size || 0;
-                const completed = t.completedLength || t.downloaded || 0;
-                const percent = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
-                const speed = t.downloadSpeed || 0;
-
-                if (cardFill) cardFill.style.width = `${percent}%`;
-                if (cardProgress) cardProgress.textContent = `${percent}%`;
-                if (cardSpeed) cardSpeed.textContent = `Speed: ${formatSpeed(speed)}`;
-                if (cardSize) cardSize.textContent = `${formatBytes(completed)} / ${formatBytes(total)}`;
-
-                const status = (t.status || '').toLowerCase();
-                if (status === 'complete' || status === 'completed' || percent === 100) {
-                    clearInterval(pollInterval);
-                    pollInterval = null;
-
-                    if (cardStatus) {
-                        cardStatus.className = 'motrix-task-status-badge motrix-status-complete';
-                        cardStatus.textContent = 'COMPLETE';
-                    }
-
-                    showToast('Download complete! File saved directly in Nextcloud.', 'success');
-
-                    // Trigger Nextcloud Files refresh
-                    refreshNextcloudFileList();
-
-                    // Re-scan folder via API to guarantee indexing
-                    fetch('/apps/motrix/api/scan', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'requesttoken': window.oc_requesttoken || OC.requestToken || '',
-                        },
-                        body: JSON.stringify({ targetFolder: targetFolder }),
-                    }).then(() => {
-                        refreshNextcloudFileList();
-                    }).catch(console.error);
-
-                } else if (status === 'error' || status === 'failed') {
-                    clearInterval(pollInterval);
-                    pollInterval = null;
-                    if (cardStatus) {
-                        cardStatus.className = 'motrix-task-status-badge motrix-status-error';
-                        cardStatus.textContent = 'ERROR';
-                    }
-                    showToast('Download encountered an error in Motrix', 'error');
-                }
-            } catch (err) {
-                console.debug('[Motrix] Error polling task:', err);
-            }
-        }, 1200);
-    }
-
-    /**
      * Loads Motrix settings into settings tab.
      */
     async function loadSettings() {
         try {
             const resp = await fetch('/apps/motrix/api/settings', {
-                headers: { 'requesttoken': window.oc_requesttoken || OC.requestToken || '' }
+                headers: { 'requesttoken': getRequestToken() }
             });
             const data = await resp.json();
             if (data.success) {
@@ -522,7 +761,7 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'requesttoken': window.oc_requesttoken || OC.requestToken || '',
+                    'requesttoken': getRequestToken(),
                 }
             });
             const data = await resp.json();
@@ -563,7 +802,7 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'requesttoken': window.oc_requesttoken || OC.requestToken || '',
+                    'requesttoken': getRequestToken(),
                 },
                 body: JSON.stringify(payload),
             });
