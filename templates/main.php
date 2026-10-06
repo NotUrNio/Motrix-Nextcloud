@@ -1,8 +1,3 @@
-<?php
-script('motrix', 'app');
-style('motrix', 'style');
-?>
-
 <div id="app" class="motrix-app">
     <!-- App Sidebar Navigation -->
     <div id="app-navigation" class="motrix-nav">

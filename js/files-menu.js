@@ -84,6 +84,16 @@
     }
 
     /**
+     * Resolves app route URLs dynamically using OC.generateUrl.
+     */
+    function getApiUrl(endpoint) {
+        if (window.OC && typeof window.OC.generateUrl === 'function') {
+            return window.OC.generateUrl(`/apps/motrix${endpoint}`);
+        }
+        return `/apps/motrix${endpoint}`;
+    }
+
+    /**
      * Formats remaining time in seconds to human-readable string (hours, minutes, seconds).
      */
     function formatEta(seconds) {
@@ -248,11 +258,8 @@
                         <div id="motrix-settings-status" style="margin-bottom: 12px; font-size: 13px;"></div>
 
                         <div style="display: flex; gap: 10px; margin-bottom: 16px;">
-                            <a href="/apps/motrix" target="_blank" class="motrix-btn motrix-btn-secondary" style="font-size: 12px; text-decoration: none;">
+                            <a href="${getApiUrl('')}" target="_blank" class="motrix-btn motrix-btn-secondary" style="font-size: 12px; text-decoration: none;">
                                 <span>Open Motrix App ↗</span>
-                            </a>
-                            <a id="motrix-port-18080-link" href="http://${window.location.hostname}:18080" target="_blank" class="motrix-btn motrix-btn-secondary" style="font-size: 12px; text-decoration: none;">
-                                <span>Motrix Web UI (Port 18080) ↗</span>
                             </a>
                         </div>
 
@@ -380,8 +387,7 @@
         const speed = Number(t.speedBps ?? t.downloadSpeed ?? 0);
         const etaSec = Number(t.etaSec ?? t.eta ?? 0);
         const eta = formatEta(etaSec);
-        const rawStatus = String(t.status || 'downloading').toLowerCase();
-        const status = (rawStatus === 'active' || rawStatus === 'waiting') ? 'downloading' : rawStatus;
+        const status = String(t.status || 'downloading').toLowerCase();
         const name = t.name || t.filename || 'Download Task';
         const id = t.id || t.taskId;
 
@@ -422,13 +428,13 @@
             try {
                 if (action === 'pause') {
                     btn.textContent = 'Pausing...';
-                    await fetch(`/apps/motrix/api/tasks/${taskId}/pause`, {
+                    await fetch(getApiUrl(`/api/tasks/${taskId}/pause`), {
                         method: 'POST',
                         headers: { 'requesttoken': getRequestToken() },
                     });
                 } else if (action === 'resume') {
                     btn.textContent = 'Resuming...';
-                    await fetch(`/apps/motrix/api/tasks/${taskId}/resume`, {
+                    await fetch(getApiUrl(`/api/tasks/${taskId}/resume`), {
                         method: 'POST',
                         headers: { 'requesttoken': getRequestToken() },
                     });
@@ -438,12 +444,12 @@
                         return;
                     }
                     btn.textContent = 'Removing...';
-                    let delRes = await fetch(`/apps/motrix/api/tasks/${taskId}`, {
+                    let delRes = await fetch(getApiUrl(`/api/tasks/${taskId}`), {
                         method: 'DELETE',
                         headers: { 'requesttoken': getRequestToken() },
                     });
                     if (!delRes.ok) {
-                        await fetch(`/apps/motrix/api/tasks/${taskId}/delete`, {
+                        await fetch(getApiUrl(`/api/tasks/${taskId}/delete`), {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -589,17 +595,17 @@
         initProgressContainerHandlers();
 
         try {
-            const resp = await fetch('/apps/motrix/api/tasks', {
+            const resp = await fetch(getApiUrl('/api/tasks'), {
                 headers: { 'requesttoken': getRequestToken() }
             });
             if (!resp.ok) return;
             const data = await resp.json();
             if (!data.success || !Array.isArray(data.tasks)) return;
 
-            // Find active or downloading tasks
+            // Find active, downloading, queued, or paused tasks
             const activeTasks = data.tasks.filter(t => {
                 const st = (t.status || '').toLowerCase();
-                return st === 'downloading' || st === 'active' || st === 'waiting' || st === 'paused';
+                return st === 'downloading' || st === 'queued' || st === 'paused';
             });
 
             if (activeTasks.length > 0) {
@@ -633,7 +639,7 @@
             }
 
             try {
-                const resp = await fetch('/apps/motrix/api/tasks', {
+                const resp = await fetch(getApiUrl('/api/tasks'), {
                     headers: { 'requesttoken': getRequestToken() }
                 });
                 if (!resp.ok) return;
@@ -647,14 +653,14 @@
                     if (!m) return;
 
                     const isTargetTask = taskId && m.id === taskId;
-                    const isActive = m.status === 'downloading' || m.status === 'paused';
+                    const isActive = m.status === 'downloading' || m.status === 'queued' || m.status === 'paused';
                     const cardExists = !!document.getElementById(`motrix-task-${m.id}`);
 
                     if (isTargetTask || isActive || cardExists) {
                         updateOrRenderTaskCard(m);
 
                         // If task just completed
-                        if ((m.status === 'complete' || m.status === 'completed' || m.percent >= 100) && !sessionCompletedTasks.has(m.id)) {
+                        if ((m.status === 'completed' || m.percent >= 100) && !sessionCompletedTasks.has(m.id)) {
                             sessionCompletedTasks.add(m.id);
 
                             showToast(`✓ "${m.name}" download complete! Saved to Nextcloud.`, 'success');
@@ -663,7 +669,7 @@
                             refreshNextcloudFileList();
 
                             // Trigger backend rescan
-                            fetch('/apps/motrix/api/scan', {
+                            fetch(getApiUrl('/api/scan'), {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
@@ -727,7 +733,7 @@
         }
 
         try {
-            const resp = await fetch('/apps/motrix/api/tasks', {
+            const resp = await fetch(getApiUrl('/api/tasks'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -789,7 +795,7 @@
      */
     async function loadSettings() {
         try {
-            const resp = await fetch('/apps/motrix/api/settings', {
+            const resp = await fetch(getApiUrl('/api/settings'), {
                 headers: { 'requesttoken': getRequestToken() }
             });
             const data = await resp.json();
@@ -799,7 +805,6 @@
                 const tokenInput = document.getElementById('motrix-setting-token');
                 const saveBtn = document.getElementById('motrix-save-settings-btn');
                 const testBtn = document.getElementById('motrix-test-settings-btn');
-                const port18080Link = document.getElementById('motrix-port-18080-link');
                 const statusDiv = document.getElementById('motrix-settings-status');
 
                 if (data.isAdmin) {
@@ -814,7 +819,6 @@
                     if (tokenInput) tokenInput.disabled = false;
                     if (saveBtn) saveBtn.style.display = '';
                     if (testBtn) testBtn.style.display = '';
-                    if (port18080Link) port18080Link.style.display = '';
                 } else {
                     if (endpointInput) {
                         endpointInput.value = '(Administrator only)';
@@ -827,7 +831,6 @@
                     if (tokenInput) tokenInput.disabled = true;
                     if (saveBtn) saveBtn.style.display = 'none';
                     if (testBtn) testBtn.style.display = 'none';
-                    if (port18080Link) port18080Link.style.display = 'none';
                     if (statusDiv) {
                         statusDiv.style.color = '#888';
                         statusDiv.textContent = 'Settings can only be configured by administrators.';
@@ -854,7 +857,7 @@
         statusDiv.appendChild(testingSpan);
 
         try {
-            const resp = await fetch('/apps/motrix/api/settings/test', {
+            const resp = await fetch(getApiUrl('/api/settings/test'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -906,7 +909,7 @@
             const payload = { endpoint, saveDir };
             if (token) payload.token = token;
 
-            const resp = await fetch('/apps/motrix/api/settings', {
+            const resp = await fetch(getApiUrl('/api/settings'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

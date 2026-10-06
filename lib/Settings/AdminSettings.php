@@ -8,6 +8,7 @@ use OCA\Motrix\Service\MotrixClient;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\IConfig;
 use OCP\Settings\ISettings;
+use OCP\Util;
 
 class AdminSettings implements ISettings {
     private IConfig $config;
@@ -17,6 +18,8 @@ class AdminSettings implements ISettings {
     }
 
     public function getForm(): TemplateResponse {
+        Util::addScript('motrix', 'admin-settings');
+
         $endpoint = (string)$this->config->getAppValue('motrix', MotrixClient::CONFIG_ENDPOINT, 'http://127.0.0.1:16801');
         $saveDir = (string)$this->config->getAppValue('motrix', MotrixClient::CONFIG_DEFAULT_SAVE_DIR, '/downloads');
         $hasToken = !empty($this->config->getAppValue('motrix', MotrixClient::CONFIG_TOKEN, ''));
@@ -29,7 +32,7 @@ class AdminSettings implements ISettings {
     }
 
     public function getSection(): string {
-        return 'general';
+        return 'additional';
     }
 
     public function getPriority(): int {

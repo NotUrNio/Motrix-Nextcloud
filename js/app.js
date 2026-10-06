@@ -151,7 +151,11 @@
 
         let filtered = allTasks;
         if (currentFilter !== 'all') {
-            filtered = allTasks.filter(t => t.status === currentFilter);
+            if (currentFilter === 'downloading') {
+                filtered = allTasks.filter(t => t.status === 'downloading' || t.status === 'queued');
+            } else {
+                filtered = allTasks.filter(t => t.status === currentFilter);
+            }
         }
 
         container.innerHTML = '';
@@ -216,7 +220,7 @@
             const actions = document.createElement('div');
             actions.className = 'task-actions';
 
-            if (t.status === 'downloading') {
+            if (t.status === 'downloading' || t.status === 'queued') {
                 const pauseBtn = document.createElement('button');
                 pauseBtn.className = 'task-btn';
                 pauseBtn.textContent = 'Pause';
@@ -267,7 +271,7 @@
 
     const updateCounts = () => {
         document.getElementById('count-all').textContent = allTasks.length;
-        document.getElementById('count-downloading').textContent = allTasks.filter(t => t.status === 'downloading').length;
+        document.getElementById('count-downloading').textContent = allTasks.filter(t => t.status === 'downloading' || t.status === 'queued').length;
         document.getElementById('count-paused').textContent = allTasks.filter(t => t.status === 'paused').length;
         document.getElementById('count-completed').textContent = allTasks.filter(t => t.status === 'completed').length;
     };

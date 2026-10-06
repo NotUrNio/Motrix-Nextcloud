@@ -90,6 +90,22 @@ class ApiController extends Controller {
         return implode('/', $cleanSegments);
     }
 
+    /**
+     * Normalizes Motrix/aria2 task status values into frontend statuses:
+     * downloading, queued, paused, completed, error.
+     */
+    public static function normalizeStatus(?string $status): string {
+        $st = strtolower(trim((string)$status));
+        return match ($st) {
+            'active', 'downloading' => 'downloading',
+            'waiting', 'queued' => 'queued',
+            'paused', 'stopped' => 'paused',
+            'complete', 'completed' => 'completed',
+            'error', 'failed' => 'error',
+            default => !empty($st) ? $st : 'downloading',
+        };
+    }
+
     #[NoAdminRequired]
     public function getStatus(): DataResponse {
         try {
@@ -127,11 +143,15 @@ class ApiController extends Controller {
             $userTaskIds = $this->taskOwnershipService->getUserTaskIds($user->getUID());
             $allTasks = $this->motrixClient->listTasks($status);
 
-            // Per-user isolation: only return tasks owned by the current user
-            $tasks = array_values(array_filter($allTasks, function ($t) use ($userTaskIds) {
+            // Per-user isolation & status normalization
+            $tasks = [];
+            foreach ($allTasks as $t) {
                 $tid = $t['id'] ?? $t['taskId'] ?? $t['gid'] ?? '';
-                return in_array($tid, $userTaskIds, true);
-            }));
+                if (in_array($tid, $userTaskIds, true)) {
+                    $t['status'] = self::normalizeStatus($t['status'] ?? '');
+                    $tasks[] = $t;
+                }
+            }
 
             return new DataResponse(['success' => true, 'tasks' => $tasks]);
         } catch (\Throwable $e) {
@@ -160,9 +180,12 @@ class ApiController extends Controller {
                 return new DataResponse(['success' => false, 'error' => 'Task not found in Motrix'], Http::STATUS_NOT_FOUND);
             }
 
+            $rawStatus = (string)($task['status'] ?? '');
+            $normalizedStatus = self::normalizeStatus($rawStatus);
+            $task['status'] = $normalizedStatus;
+
             // Auto-rescan folder if task has finished
-            $status = $task['status'] ?? '';
-            if (in_array($status, ['complete', 'completed', 'stopped'], true)) {
+            if ($normalizedStatus === 'completed') {
                 $cleanFolder = $this->normalizeTargetFolder($targetFolder);
                 $this->storageSyncService->scanPath($user->getUID(), $cleanFolder);
             }
@@ -339,6 +362,11 @@ class ApiController extends Controller {
         } catch (\Throwable $e) {
             return new DataResponse(['success' => false, 'error' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
+    }
+
+    #[NoAdminRequired]
+    public function deleteTaskFallback(string $taskId, bool $deleteFiles = false): DataResponse {
+        return $this->deleteTask($taskId, $deleteFiles);
     }
 
     #[NoAdminRequired]
