@@ -206,11 +206,19 @@ class MotrixClient {
     }
 
     public function removeTask(string $taskId, bool $deleteFiles = false): bool {
-        $result = $this->call('task/remove', [
-            'taskId' => $taskId,
-            'deleteFiles' => $deleteFiles,
-        ]);
-        return !empty($result['ok']);
+        try {
+            $result = $this->call('task/remove', [
+                'taskId' => $taskId,
+                'deleteFiles' => $deleteFiles,
+            ]);
+            return !empty($result['ok']);
+        } catch (\Throwable $e) {
+            $msg = strtolower($e->getMessage());
+            if (str_contains($msg, 'not found') || str_contains($msg, '404')) {
+                return true;
+            }
+            throw $e;
+        }
     }
 
     public function testConnection(): array {

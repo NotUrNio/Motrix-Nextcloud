@@ -173,44 +173,48 @@ class ApiController extends Controller {
 
     /**
      * @NoAdminRequired
+     * @NoCSRFRequired
      */
-    public function pauseTask(string $taskId): DataResponse {
-        try {
-            $ok = $this->motrixClient->pauseTask($taskId);
-            return new DataResponse(['success' => $ok]);
-        } catch (\Throwable $e) {
-            return new DataResponse(['success' => false, 'error' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }
-    }
+     public function pauseTask(string $taskId): DataResponse {
+         try {
+             $ok = $this->motrixClient->pauseTask($taskId);
+             return new DataResponse(['success' => $ok]);
+         } catch (\Throwable $e) {
+             return new DataResponse(['success' => false, 'error' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
+         }
+     }
 
-    /**
-     * @NoAdminRequired
-     */
-    public function resumeTask(string $taskId): DataResponse {
-        try {
-            $ok = $this->motrixClient->resumeTask($taskId);
-            return new DataResponse(['success' => $ok]);
-        } catch (\Throwable $e) {
-            return new DataResponse(['success' => false, 'error' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }
-    }
+     /**
+      * @NoAdminRequired
+      * @NoCSRFRequired
+      */
+     public function resumeTask(string $taskId): DataResponse {
+         try {
+             $ok = $this->motrixClient->resumeTask($taskId);
+             return new DataResponse(['success' => $ok]);
+         } catch (\Throwable $e) {
+             return new DataResponse(['success' => false, 'error' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
+         }
+     }
 
-    /**
-     * @NoAdminRequired
-     */
-    public function deleteTask(string $taskId, bool $deleteFiles = false): DataResponse {
-        try {
-            $ok = $this->motrixClient->removeTask($taskId, $deleteFiles);
-            return new DataResponse(['success' => $ok]);
-        } catch (\Throwable $e) {
-            return new DataResponse(['success' => false, 'error' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }
-    }
+     /**
+      * @NoAdminRequired
+      * @NoCSRFRequired
+      */
+     public function deleteTask(string $taskId, bool $deleteFiles = false): DataResponse {
+         try {
+             $ok = $this->motrixClient->removeTask($taskId, $deleteFiles);
+             return new DataResponse(['success' => true, 'removed' => $ok]);
+         } catch (\Throwable $e) {
+             return new DataResponse(['success' => false, 'error' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
+         }
+     }
 
-    /**
-     * @NoAdminRequired
-     */
-    public function syncTask(string $taskId, string $targetFolder = 'Downloads'): DataResponse {
+     /**
+      * @NoAdminRequired
+      * @NoCSRFRequired
+      */
+     public function syncTask(string $taskId, string $targetFolder = 'Downloads'): DataResponse {
         $user = $this->userSession->getUser();
         if (!$user) {
             return new DataResponse(['success' => false, 'error' => 'User not logged in'], Http::STATUS_UNAUTHORIZED);

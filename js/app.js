@@ -20,6 +20,10 @@
         return formatBytes(bytesPerSec) + '/s';
     };
 
+    const getRequestToken = () => {
+        return window.oc_requesttoken || (window.OC && window.OC.requestToken) || document.head?.dataset?.requesttoken || '';
+    };
+
     const getApiUrl = (endpoint) => {
         return OC.generateUrl(`/apps/motrix${endpoint}`);
     };
@@ -27,7 +31,7 @@
     const fetchTasks = async () => {
         try {
             const res = await fetch(getApiUrl('/api/tasks'), {
-                headers: { 'requesttoken': OC.requestToken }
+                headers: { 'requesttoken': getRequestToken() }
             });
             const data = await res.json();
             if (data.success) {
@@ -46,7 +50,7 @@
     const fetchStats = async () => {
         try {
             const res = await fetch(getApiUrl('/api/stats'), {
-                headers: { 'requesttoken': OC.requestToken }
+                headers: { 'requesttoken': getRequestToken() }
             });
             const data = await res.json();
             if (data.success && data.stats) {
@@ -141,23 +145,73 @@
         pauseTask: async (taskId) => {
             await fetch(getApiUrl(`/api/tasks/${taskId}/pause`), {
                 method: 'POST',
-                headers: { 'requesttoken': OC.requestToken }
+                headers: { 'requesttoken': getRequestToken() }
             });
             fetchTasks();
         },
         resumeTask: async (taskId) => {
             await fetch(getApiUrl(`/api/tasks/${taskId}/resume`), {
                 method: 'POST',
-                headers: { 'requesttoken': OC.requestToken }
+                headers: { 'requesttoken': getRequestToken() }
             });
             fetchTasks();
         },
         deleteTask: async (taskId) => {
             if (!confirm('Remove this download task?')) return;
-            await fetch(getApiUrl(`/api/tasks/${taskId}`), {
-                method: 'DELETE',
-                headers: { 'requesttoken': OC.requestToken }
-            });
+            const card = document.getElementById(`task-${taskId}`);
+            if (card) {
+                card.style.opacity = '0.4';
+                card.style.pointerEvents = 'none';
+            }
+
+            try {
+                const token = getRequestToken();
+                let res = await fetch(getApiUrl(`/api/tasks/${taskId}`), {
+                    method: 'DELETE',
+                    headers: { 'requesttoken': token }
+                });
+
+                if (!res.ok) {
+                    res = await fetch(getApiUrl(`/api/tasks/${taskId}/delete`), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'requesttoken': token,
+                        }
+                    });
+                }
+
+                const data = await res.json();
+                if (data.success) {
+                    allTasks = allTasks.filter(t => t.id !== taskId);
+                    renderTasks();
+                    updateCounts();
+                } else {
+                    alert('Could not remove task: ' + (data.error || 'Unknown error'));
+                    if (card) {
+                        card.style.opacity = '1';
+                        card.style.pointerEvents = 'auto';
+                    }
+                }
+            } catch (err) {
+                console.error('[Motrix] Error deleting task:', err);
+                try {
+                    const token = getRequestToken();
+                    await fetch(getApiUrl(`/api/tasks/${taskId}/delete`), {
+                        method: 'POST',
+                        headers: { 'requesttoken': token }
+                    });
+                    allTasks = allTasks.filter(t => t.id !== taskId);
+                    renderTasks();
+                    updateCounts();
+                } catch (_) {
+                    alert('Error removing task: ' + err.message);
+                    if (card) {
+                        card.style.opacity = '1';
+                        card.style.pointerEvents = 'auto';
+                    }
+                }
+            }
             fetchTasks();
         },
         syncTask: async (taskId) => {
@@ -167,7 +221,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'requesttoken': OC.requestToken
+                        'requesttoken': getRequestToken()
                     },
                     body: JSON.stringify({ targetFolder: folder })
                 });
@@ -245,7 +299,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'requesttoken': OC.requestToken
+                        'requesttoken': getRequestToken()
                     },
                     body: JSON.stringify(payload)
                 });
@@ -269,7 +323,7 @@
             settingsModal.classList.remove('hidden');
             try {
                 const res = await fetch(getApiUrl('/api/settings'), {
-                    headers: { 'requesttoken': OC.requestToken }
+                    headers: { 'requesttoken': getRequestToken() }
                 });
                 const data = await res.json();
                 if (data.success) {
@@ -294,7 +348,7 @@
             try {
                 const res = await fetch(getApiUrl('/api/settings/test'), {
                     method: 'POST',
-                    headers: { 'requesttoken': OC.requestToken }
+                    headers: { 'requesttoken': getRequestToken() }
                 });
                 const data = await res.json();
                 if (data.success) {
@@ -321,7 +375,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'requesttoken': OC.requestToken
+                        'requesttoken': getRequestToken()
                     },
                     body: JSON.stringify({ endpoint, token, saveDir })
                 });
