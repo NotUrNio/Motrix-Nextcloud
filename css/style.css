@@ -324,18 +324,53 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+    width: 100%;
 }
 
 .form-group label {
     font-weight: 500;
     font-size: 0.9em;
+    display: block;
+    margin-bottom: 2px;
 }
 
-.form-control {
-    padding: 8px 12px;
-    border: 1px solid var(--color-border, #ccc);
-    border-radius: 6px;
-    font-size: 0.95em;
+.form-group small {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.85em;
+    color: var(--color-text-maxcontrast, #777);
+}
+
+.form-control,
+.form-group input.form-control,
+.form-group select.form-control,
+.nd-downloader-modal input[type="text"],
+.nd-downloader-modal input[type="password"],
+.nd-downloader-modal select {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 10px 14px !important;
+    min-height: 42px !important;
+    border: 1px solid var(--color-border, #ccc) !important;
+    border-radius: 6px !important;
+    font-size: 0.95em !important;
+    background: var(--color-main-background, #fff) !important;
+    color: var(--color-main-text, #222) !important;
+    line-height: 1.4 !important;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-control:focus,
+.form-group input.form-control:focus,
+.form-group select.form-control:focus,
+.nd-downloader-modal input[type="text"]:focus,
+.nd-downloader-modal input[type="password"]:focus,
+.nd-downloader-modal select:focus {
+    border-color: var(--color-primary-element, #0082c9) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(0, 130, 201, 0.25) !important;
 }
 
 .modal-footer {
