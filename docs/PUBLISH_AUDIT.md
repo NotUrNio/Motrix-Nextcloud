@@ -214,17 +214,18 @@ A critical architectural inconsistency was identified between the UI/documentati
 
 Upon user approval of this audit, Phase 1 will implement the following structured fixes:
 
-### 1. `appinfo/info.xml` & Repository Metadata
-- [ ] Fix `<licence>` to `AGPL-3.0-or-later`.
-- [ ] Add `mail` and name to `<author mail="support@noturnio.dev">NotUrNio</author>`.
-- [ ] Fix dependencies: `<nextcloud min-version="28" max-version="31"/>` and `<php min-version="8.1" max-version="8.4"/>`.
-- [ ] Add `<repository type="git">https://github.com/NotUrNio/ND-Nextcloud</repository>`.
-- [ ] Wrap description in `<![CDATA[...]]>`.
-- [ ] Add `<screenshot>` definitions.
-- [ ] Create `LICENSE` (AGPL-3.0-or-later with MIT attribution notice for Motrix heritage).
-- [ ] Create `CHANGELOG.md`.
-- [ ] Add `img/app.svg` and `img/app-dark.svg`.
-- [ ] Capture/generate 2–3 UI screenshots and store in `docs/screenshots/`.
+### 1. `appinfo/info.xml` & Repository Metadata (Step E - Completed)
+- [x] Fix `<licence>` to `AGPL-3.0-or-later`.
+- [x] Add `mail` and name to `<author mail="niowork477@gmail.com">NotUrNio</author>`.
+- [x] Fix dependencies: `<php min-version="8.1" max-version="8.4"/>` and `<nextcloud min-version="28" max-version="31"/>`.
+- [x] Add `<repository type="git">https://github.com/NotUrNio/ND-Nextcloud</repository>`.
+- [x] Wrap description in `<![CDATA[...]]>`.
+- [x] Add `<screenshot>` definitions (validated against official Nextcloud info.xsd).
+- [x] Create root `LICENSE` (AGPL-3.0-or-later).
+- [x] Create `THIRD_PARTY_NOTICES.md` with Motrix MIT copyright and license.
+- [x] Create structured `CHANGELOG.md`.
+- [x] Add `img/app.svg` and `img/app-dark.svg`.
+- [x] Capture/generate UI screenshots and store in `docs/screenshots/` with README guide.
 
 ### 2. Environment Hardcoding & Security Remediation
 - [x] **Step A (Complete):** Removed hardcoded fallback token `6wiYws5...` from `NdDownloaderClient.php`, `ApiController.php`, and migrations. Removed 401 config-mutating auto-heal. Added compromise notice.

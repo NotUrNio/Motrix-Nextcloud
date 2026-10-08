@@ -2,30 +2,32 @@
 <info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
     <id>nddownloader</id>
     <name>ND Downloader</name>
-    <namespace>NdDownloader</namespace>
-    <summary>Seamless download manager for Nextcloud powered by ND Downloader</summary>
-    <description><![CDATA[ND Downloader integration for Nextcloud:
-- Add HTTP/HTTPS, FTP, Magnet links, and Torrents directly to ND Downloader
-- Monitor real-time download progress, speeds, and ETA
-- Automatically sync completed files directly into your Nextcloud storage
-- Pause, resume, and remove active downloads
-- Powered by Aria2 RPC server
+    <summary>High-performance download manager for Nextcloud powered by an external ND / Motrix download server</summary>
+    <description><![CDATA[ND Downloader integrates robust background download management into Nextcloud:
+
+- Send HTTP/HTTPS, FTP, Magnet links, and Torrent downloads to an external ND / Motrix download server
+- Fast multi-connection downloading powered by aria2 core
+- Live download progress, transfer speeds, and ETA tracking in the Nextcloud interface
+- Automatically imports finished downloads straight into your Nextcloud personal storage
+- Seamless integration inside Nextcloud Files "+ New" menu and drag-and-drop link support
+- Per-user download isolation so users only manage their own tasks
+- Configurable admin connection settings with encrypted secret token storage
     ]]></description>
-    <version>1.0.1</version>
-    <licence>agpl</licence>
-    <author>Nio</author>
+    <version>1.0.0</version>
+    <licence>AGPL-3.0-or-later</licence>
+    <author mail="niowork477@gmail.com">NotUrNio</author>
+    <namespace>NdDownloader</namespace>
     <category>tools</category>
+    <category>integration</category>
+    <website>https://github.com/NotUrNio/ND-Nextcloud</website>
     <bugs>https://github.com/NotUrNio/ND-Nextcloud/issues</bugs>
-    <repository>https://github.com/NotUrNio/ND-Nextcloud</repository>
+    <repository type="git">https://github.com/NotUrNio/ND-Nextcloud</repository>
+    <screenshot>https://raw.githubusercontent.com/NotUrNio/ND-Nextcloud/main/docs/screenshots/dashboard.png</screenshot>
+    <screenshot>https://raw.githubusercontent.com/NotUrNio/ND-Nextcloud/main/docs/screenshots/admin-settings.png</screenshot>
     <dependencies>
-        <nextcloud min-version="28" max-version="36"/>
+        <php min-version="8.1" max-version="8.4"/>
+        <nextcloud min-version="28" max-version="31"/>
     </dependencies>
-    <navigation>
-        <name>Downloads</name>
-        <route>nddownloader.page.index</route>
-        <icon>img/nddownloader.svg</icon>
-        <order>70</order>
-    </navigation>
     <settings>
         <admin>OCA\NdDownloader\Settings\AdminSettings</admin>
     </settings>
