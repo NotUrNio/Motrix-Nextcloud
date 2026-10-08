@@ -2,7 +2,7 @@
 
 A Nextcloud app that sends downloads (HTTP/HTTPS, FTP, magnet links, torrents) to an Aria2 RPC server and saves the finished files straight into Nextcloud storage.
 
-*Compatibility note: works with Motrix/aria2.*
+*Compatibility note: works with ND/aria2.*
 
 ## Overview
 
