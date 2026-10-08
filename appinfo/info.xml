@@ -2,6 +2,7 @@
 <info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
     <id>nddownloader</id>
     <name>ND Downloader</name>
+    <namespace>NdDownloader</namespace>
     <summary>Seamless download manager for Nextcloud powered by ND Downloader</summary>
     <description><![CDATA[ND Downloader integration for Nextcloud:
 - Add HTTP/HTTPS, FTP, Magnet links, and Torrents directly to ND Downloader
