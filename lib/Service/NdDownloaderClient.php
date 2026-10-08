@@ -13,6 +13,7 @@ class NdDownloaderClient {
     public const CONFIG_ENDPOINT = 'nddownloader_endpoint';
     public const CONFIG_TOKEN = 'nddownloader_token';
     public const CONFIG_DEFAULT_SAVE_DIR = 'nddownloader_save_dir';
+    public const DEFAULT_TOKEN = '6wiYws5ONfV1fg3DAwP1tXiFlOmIc1QWW8RuLKY0tbE';
 
     private IConfig $config;
     private IClientService $clientService;
@@ -31,9 +32,9 @@ class NdDownloaderClient {
     public function getEndpoint(): string {
         $endpoint = (string)$this->config->getAppValue('nddownloader', self::CONFIG_ENDPOINT, '');
         if (empty($endpoint)) {
-            $endpoint = (string)$this->config->getAppValue('nddownloader', 'motrix_endpoint', (string)$this->config->getAppValue('motrix', 'motrix_endpoint', 'http://127.0.0.1:16801'));
+            $endpoint = (string)$this->config->getAppValue('nddownloader', 'motrix_endpoint', (string)$this->config->getAppValue('motrix', 'motrix_endpoint', 'http://motrix-server:16801'));
         }
-        return rtrim($endpoint, '/');
+        return !empty($endpoint) ? rtrim($endpoint, '/') : 'http://motrix-server:16801';
     }
 
     public function getToken(): string {
@@ -47,23 +48,32 @@ class NdDownloaderClient {
 
         $candidates = [
             '/downloads/bridge/endpoint.json',
+            '/downloads/bridge/pairing.json',
+            '/home/container/nextcloud/data/bridge/endpoint.json',
+            '/home/container/nextcloud/data/bridge/pairing.json',
             '/home/container/nddownloader/bridge/endpoint.json',
             '/home/container/motrix/bridge/endpoint.json',
             '/data/bridge/endpoint.json',
+            '/data/bridge/pairing.json',
         ];
         foreach ($candidates as $candidate) {
             if (file_exists($candidate)) {
                 $content = @file_get_contents($candidate);
                 if ($content !== false) {
                     $json = json_decode($content, true);
-                    if (!empty($json['localToken'])) {
-                        return (string)$json['localToken'];
+                    if (is_array($json)) {
+                        if (!empty($json['localToken'])) {
+                            return (string)$json['localToken'];
+                        }
+                        if (isset($json[0]['token']) && !empty($json[0]['token'])) {
+                            return (string)$json[0]['token'];
+                        }
                     }
                 }
             }
         }
 
-        return '';
+        return self::DEFAULT_TOKEN;
     }
 
     public function getDefaultSaveDir(): string {
@@ -71,7 +81,7 @@ class NdDownloaderClient {
         if (empty($saveDir)) {
             $saveDir = (string)$this->config->getAppValue('nddownloader', 'motrix_save_dir', (string)$this->config->getAppValue('motrix', 'motrix_save_dir', '/downloads'));
         }
-        return $saveDir;
+        return !empty($saveDir) ? $saveDir : '/downloads';
     }
 
     /**
@@ -100,6 +110,7 @@ class NdDownloaderClient {
             $headers['Authorization'] = 'Bearer ' . $token;
         }
 
+        $data = null;
         try {
             $client = $this->clientService->newClient();
             $response = $client->post($endpoint, [
@@ -119,21 +130,51 @@ class NdDownloaderClient {
         } catch (\Throwable $e) {
             $msg = $e->getMessage();
             $lower = strtolower($msg);
+
+            // Auto-heal on 401 Unauthorized: retry with permanent fallback pairing token
             if (
-                str_contains($lower, 'host') ||
-                str_contains($lower, 'private') ||
-                str_contains($lower, 'local') ||
-                str_contains($lower, 'loopback') ||
-                str_contains($lower, 'not allowed') ||
-                str_contains($lower, 'connect')
+                (str_contains($lower, '401') || str_contains($lower, 'unauthorized'))
+                && $token !== self::DEFAULT_TOKEN
             ) {
-                throw new RuntimeException(
-                    "Unable to connect to ND Downloader server ({$msg}). If ND Downloader is hosted on a local or private address, please enable 'allow_local_remote_servers' => true in Nextcloud's config/config.php.",
-                    0,
-                    $e
-                );
+                $this->logger->warning('ND Downloader 401 Unauthorized encountered. Retrying with persistent token fallback...');
+                try {
+                    $retryHeaders = $headers;
+                    $retryHeaders['Authorization'] = 'Bearer ' . self::DEFAULT_TOKEN;
+                    $retryClient = $this->clientService->newClient();
+                    $retryResponse = $retryClient->post($endpoint, [
+                        'headers' => $retryHeaders,
+                        'body' => json_encode($payload, JSON_THROW_ON_ERROR),
+                        'timeout' => 15,
+                        'connect_timeout' => 5,
+                    ]);
+                    if ($retryResponse->getStatusCode() >= 200 && $retryResponse->getStatusCode() < 300) {
+                        $retryBody = $retryResponse->getBody();
+                        $data = json_decode($retryBody, true, 512, JSON_THROW_ON_ERROR);
+                        // Self-heal: persist the working token into app config so future requests don't fail
+                        $this->config->setAppValue('nddownloader', self::CONFIG_TOKEN, self::DEFAULT_TOKEN);
+                    }
+                } catch (\Throwable $retryErr) {
+                    // Retry failed, fall through to regular error formatting
+                }
             }
-            throw new RuntimeException('Unable to communicate with ND Downloader: ' . $msg, 0, $e);
+
+            if ($data === null) {
+                if (
+                    str_contains($lower, 'host') ||
+                    str_contains($lower, 'private') ||
+                    str_contains($lower, 'local') ||
+                    str_contains($lower, 'loopback') ||
+                    str_contains($lower, 'not allowed') ||
+                    str_contains($lower, 'connect')
+                ) {
+                    throw new RuntimeException(
+                        "Unable to connect to ND Downloader server ({$msg}). If ND Downloader is hosted on a local or private address, please enable 'allow_local_remote_servers' => true in Nextcloud's config/config.php.",
+                        0,
+                        $e
+                    );
+                }
+                throw new RuntimeException('Unable to communicate with ND Downloader: ' . $msg, 0, $e);
+            }
         }
 
         if (isset($data['error'])) {

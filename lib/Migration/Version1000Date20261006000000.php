@@ -59,4 +59,40 @@ class Version1000Date20261006000000 extends SimpleMigrationStep {
 
         return null;
     }
+
+    public function postSchemaChange(IOutput $output, Closure $schemaClosure, array $options): void {
+        try {
+            /** @var \OCP\IConfig $config */
+            $config = \OC::$server->get(\OCP\IConfig::class);
+
+            $token = $config->getAppValue('nddownloader', 'nddownloader_token', '');
+            if (empty($token)) {
+                $token = $config->getAppValue('nddownloader', 'motrix_token', (string)$config->getAppValue('motrix', 'motrix_token', ''));
+                if (empty($token)) {
+                    $token = '6wiYws5ONfV1fg3DAwP1tXiFlOmIc1QWW8RuLKY0tbE';
+                }
+                $config->setAppValue('nddownloader', 'nddownloader_token', $token);
+            }
+
+            $endpoint = $config->getAppValue('nddownloader', 'nddownloader_endpoint', '');
+            if (empty($endpoint)) {
+                $endpoint = $config->getAppValue('nddownloader', 'motrix_endpoint', (string)$config->getAppValue('motrix', 'motrix_endpoint', 'http://motrix-server:16801'));
+                if (empty($endpoint)) {
+                    $endpoint = 'http://motrix-server:16801';
+                }
+                $config->setAppValue('nddownloader', 'nddownloader_endpoint', $endpoint);
+            }
+
+            $saveDir = $config->getAppValue('nddownloader', 'nddownloader_save_dir', '');
+            if (empty($saveDir)) {
+                $saveDir = $config->getAppValue('nddownloader', 'motrix_save_dir', (string)$config->getAppValue('motrix', 'motrix_save_dir', '/downloads'));
+                if (empty($saveDir)) {
+                    $saveDir = '/downloads';
+                }
+                $config->setAppValue('nddownloader', 'nddownloader_save_dir', $saveDir);
+            }
+        } catch (\Throwable $e) {
+            // Non-fatal if config is unavailable during initial migration runner setup
+        }
+    }
 }
