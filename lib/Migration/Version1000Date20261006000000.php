@@ -17,11 +17,6 @@ class Version1000Date20261006000000 extends SimpleMigrationStep {
         $schema = $schemaClosure();
 
         if (!$schema->hasTable('nddownloader_tasks')) {
-            if ($schema->hasTable('motrix_tasks')) {
-                $schema->renameTable('motrix_tasks', 'nddownloader_tasks');
-                return $schema;
-            }
-
             $table = $schema->createTable('nddownloader_tasks');
             $table->addColumn('id', Types::BIGINT, [
                 'autoincrement' => true,
@@ -62,6 +57,16 @@ class Version1000Date20261006000000 extends SimpleMigrationStep {
 
     public function postSchemaChange(IOutput $output, Closure $schemaClosure, array $options): void {
         try {
+            /** @var \OCP\IDBConnection $connection */
+            $connection = \OC::$server->get(\OCP\IDBConnection::class);
+            try {
+                $connection->executeStatement(
+                    'INSERT IGNORE INTO `*PREFIX*nddownloader_tasks` (`task_id`, `user_id`, `target_folder`, `created_at`, `synced`) ' .
+                    'SELECT `task_id`, `user_id`, `target_folder`, `created_at`, `synced` FROM `*PREFIX*motrix_tasks`'
+                );
+            } catch (\Throwable $e) {
+                // Table motrix_tasks might not exist, ignore
+            }
             /** @var \OCP\IConfig $config */
             $config = \OC::$server->get(\OCP\IConfig::class);
 
