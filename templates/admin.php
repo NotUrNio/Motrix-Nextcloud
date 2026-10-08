@@ -7,8 +7,8 @@
 
     <div class="form-group" style="margin-top: 12px;">
         <label for="nddownloader_admin_endpoint" style="display: block; font-weight: bold; margin-bottom: 4px;">Aria2 RPC server:</label>
-        <input type="text" id="nddownloader_admin_endpoint" value="<?php p($_['endpoint']); ?>" placeholder="http://127.0.0.1:16801" class="text-input" style="width: 350px;" />
-        <p class="hint" style="color: #888; font-size: 12px; margin-top: 2px;">RPC endpoint (default: <code>http://127.0.0.1:16801</code>)</p>
+        <input type="text" id="nddownloader_admin_endpoint" value="<?php p($_['endpoint']); ?>" placeholder="http://nd-server:16801" class="text-input" style="width: 350px;" />
+        <p class="hint" style="color: #888; font-size: 12px; margin-top: 2px;">RPC endpoint (default: <code>http://nd-server:16801</code>)</p>
     </div>
 
     <div class="form-group" style="margin-top: 12px;">

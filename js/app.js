@@ -314,7 +314,7 @@
         }
     };
 
-    const startMotrixEngine = async () => {
+    const startNdEngine = async () => {
         const btns = [
             document.getElementById('btn-start-engine'),
             document.getElementById('btn-banner-start-engine'),
@@ -339,14 +339,14 @@
             });
             const data = await safeParseJson(res);
             if (data.success) {
-                showNotification(data.message || 'Motrix engine is active and ready!', 'success');
+                showNotification(data.message || 'ND engine is active and ready!', 'success');
                 hideError();
                 updateEngineStatus('ready', 'Ready');
                 fetchTasks();
                 fetchStats();
             } else {
-                showNotification(data.error || 'Failed to start Motrix engine', 'error');
-                showError('Motrix engine could not be started: ' + (data.error || 'Unreachable'));
+                showNotification(data.error || 'Failed to start ND engine', 'error');
+                showError('ND engine could not be started: ' + (data.error || 'Unreachable'));
                 updateEngineStatus('offline', 'Offline');
             }
         } catch (err) {
@@ -363,7 +363,7 @@
 
     // Public actions exposed on window.ndDownloaderApp
     window.ndDownloaderApp = {
-        startEngine: startMotrixEngine,
+        startEngine: startNdEngine,
         pauseTask: async (taskId) => {
             await fetch(getApiUrl(`/api/tasks/${taskId}/pause`), {
                 method: 'POST',
@@ -507,17 +507,17 @@
 
         const startEngineBtn = document.getElementById('btn-start-engine');
         if (startEngineBtn) {
-            startEngineBtn.addEventListener('click', startMotrixEngine);
+            startEngineBtn.addEventListener('click', startNdEngine);
         }
 
         const bannerStartBtn = document.getElementById('btn-banner-start-engine');
         if (bannerStartBtn) {
-            bannerStartBtn.addEventListener('click', startMotrixEngine);
+            bannerStartBtn.addEventListener('click', startNdEngine);
         }
 
         const settingsStartBtn = document.getElementById('btn-start-engine-settings');
         if (settingsStartBtn) {
-            settingsStartBtn.addEventListener('click', startMotrixEngine);
+            settingsStartBtn.addEventListener('click', startNdEngine);
         }
 
 

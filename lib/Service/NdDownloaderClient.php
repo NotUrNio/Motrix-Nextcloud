@@ -32,13 +32,28 @@ class NdDownloaderClient {
     public function getEndpoint(): string {
         $endpoint = (string)$this->config->getAppValue('nddownloader', self::CONFIG_ENDPOINT, '');
         if (empty($endpoint)) {
-            $endpoint = (string)$this->config->getAppValue('nddownloader', 'motrix_endpoint', (string)$this->config->getAppValue('motrix', 'motrix_endpoint', 'http://motrix-server:16801'));
+            $endpoint = (string)$this->config->getAppValue('nddownloader', 'nd_endpoint', '');
         }
-        return !empty($endpoint) ? rtrim($endpoint, '/') : 'http://motrix-server:16801';
+        if (empty($endpoint)) {
+            $endpoint = (string)$this->config->getAppValue('nddownloader', 'endpoint', '');
+        }
+        if (empty($endpoint)) {
+            $endpoint = (string)$this->config->getAppValue('nddownloader', 'motrix_endpoint', (string)$this->config->getAppValue('motrix', 'motrix_endpoint', 'http://nd-server:16801'));
+        }
+        if (empty($endpoint) || $endpoint === 'http://motrix-server:16801') {
+            $endpoint = 'http://nd-server:16801';
+        }
+        return !empty($endpoint) ? rtrim($endpoint, '/') : 'http://nd-server:16801';
     }
 
     public function getToken(): string {
         $token = (string)$this->config->getAppValue('nddownloader', self::CONFIG_TOKEN, '');
+        if (empty($token)) {
+            $token = (string)$this->config->getAppValue('nddownloader', 'nd_token', '');
+        }
+        if (empty($token)) {
+            $token = (string)$this->config->getAppValue('nddownloader', 'token', '');
+        }
         if (empty($token)) {
             $token = (string)$this->config->getAppValue('nddownloader', 'motrix_token', (string)$this->config->getAppValue('motrix', 'motrix_token', ''));
         }
@@ -52,6 +67,9 @@ class NdDownloaderClient {
             '/home/container/nextcloud/data/bridge/endpoint.json',
             '/home/container/nextcloud/data/bridge/pairing.json',
             '/home/container/nddownloader/bridge/endpoint.json',
+            '/home/container/nddownloader/bridge/pairing.json',
+            '/home/container/nd/bridge/endpoint.json',
+            '/home/container/nd/bridge/pairing.json',
             '/home/container/motrix/bridge/endpoint.json',
             '/data/bridge/endpoint.json',
             '/data/bridge/pairing.json',
@@ -78,6 +96,12 @@ class NdDownloaderClient {
 
     public function getDefaultSaveDir(): string {
         $saveDir = (string)$this->config->getAppValue('nddownloader', self::CONFIG_DEFAULT_SAVE_DIR, '');
+        if (empty($saveDir)) {
+            $saveDir = (string)$this->config->getAppValue('nddownloader', 'nd_save_dir', '');
+        }
+        if (empty($saveDir)) {
+            $saveDir = (string)$this->config->getAppValue('nddownloader', 'save_dir', '');
+        }
         if (empty($saveDir)) {
             $saveDir = (string)$this->config->getAppValue('nddownloader', 'motrix_save_dir', (string)$this->config->getAppValue('motrix', 'motrix_save_dir', '/downloads'));
         }

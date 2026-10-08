@@ -21,8 +21,11 @@ class AdminSettings implements ISettings {
         Util::addScript('nddownloader', 'admin-settings');
 
         $endpoint = (string)$this->config->getAppValue('nddownloader', NdDownloaderClient::CONFIG_ENDPOINT, '');
-        if (empty($endpoint)) {
-            $endpoint = (string)$this->config->getAppValue('nddownloader', 'motrix_endpoint', (string)$this->config->getAppValue('motrix', 'motrix_endpoint', 'http://127.0.0.1:16801'));
+        if (empty($endpoint) || $endpoint === 'http://motrix-server:16801') {
+            $endpoint = (string)$this->config->getAppValue('nddownloader', 'motrix_endpoint', (string)$this->config->getAppValue('motrix', 'motrix_endpoint', 'http://nd-server:16801'));
+        }
+        if (empty($endpoint) || $endpoint === 'http://motrix-server:16801') {
+            $endpoint = 'http://nd-server:16801';
         }
 
         $saveDir = (string)$this->config->getAppValue('nddownloader', NdDownloaderClient::CONFIG_DEFAULT_SAVE_DIR, '');

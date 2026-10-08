@@ -506,20 +506,21 @@ class ApiController extends Controller {
         }
 
         try {
-            // Signal host watchdog trigger to ensure motrix-server container is running
-            $triggerFile = '/home/container/motrix_start_trigger';
-            @touch($triggerFile);
+            // Signal host watchdog trigger to ensure nd-server container is running
+            @touch('/home/container/nd_start_trigger');
+            @touch('/home/container/motrix_start_trigger');
 
             // Ensure endpoint configuration is valid
             $endpoint = $this->ndClient->getEndpoint();
-            if (empty($endpoint) || str_contains($endpoint, '127.0.0.1')) {
-                $this->config->setAppValue('nddownloader', NdDownloaderClient::CONFIG_ENDPOINT, 'http://motrix-server:16801');
+            if (empty($endpoint) || str_contains($endpoint, '127.0.0.1') || $endpoint === 'http://motrix-server:16801') {
+                $this->config->setAppValue('nddownloader', NdDownloaderClient::CONFIG_ENDPOINT, 'http://nd-server:16801');
+                $this->config->setAppValue('nddownloader', 'motrix_endpoint', 'http://nd-server:16801');
             }
 
             // Ensure known pairing token is stored if missing
             $token = $this->ndClient->getToken();
             if (empty($token)) {
-                $this->config->setAppValue('nddownloader', NdDownloaderClient::CONFIG_TOKEN, NdDownloaderClient::DEFAULT_PAIRING_TOKEN);
+                $this->config->setAppValue('nddownloader', NdDownloaderClient::CONFIG_TOKEN, NdDownloaderClient::DEFAULT_TOKEN);
             }
 
             // Test connection
@@ -529,7 +530,7 @@ class ApiController extends Controller {
                 $state = $res['engine']['state'] ?? 'ready';
                 return new DataResponse([
                     'success' => true,
-                    'message' => "Motrix engine is running and ready (Aria2 {$version})",
+                    'message' => "ND Downloader engine is running and ready (Aria2 {$version})",
                     'version' => $version,
                     'state' => $state,
                     'engine' => $res['engine'] ?? null,
@@ -545,7 +546,7 @@ class ApiController extends Controller {
                 $state = $retryRes['engine']['state'] ?? 'ready';
                 return new DataResponse([
                     'success' => true,
-                    'message' => "Motrix engine started successfully (Aria2 {$version})",
+                    'message' => "ND Downloader engine started successfully (Aria2 {$version})",
                     'version' => $version,
                     'state' => $state,
                     'engine' => $retryRes['engine'] ?? null,
@@ -555,7 +556,7 @@ class ApiController extends Controller {
 
             return new DataResponse([
                 'success' => false,
-                'error' => $retryRes['error'] ?? 'Motrix engine could not be reached',
+                'error' => $retryRes['error'] ?? 'ND Downloader engine could not be reached',
             ], Http::STATUS_SERVICE_UNAVAILABLE);
         } catch (\Throwable $e) {
             return new DataResponse([

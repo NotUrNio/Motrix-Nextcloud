@@ -80,10 +80,10 @@ class Version1000Date20261006000000 extends SimpleMigrationStep {
             }
 
             $endpoint = $config->getAppValue('nddownloader', 'nddownloader_endpoint', '');
-            if (empty($endpoint)) {
-                $endpoint = $config->getAppValue('nddownloader', 'motrix_endpoint', (string)$config->getAppValue('motrix', 'motrix_endpoint', 'http://motrix-server:16801'));
-                if (empty($endpoint)) {
-                    $endpoint = 'http://motrix-server:16801';
+            if (empty($endpoint) || $endpoint === 'http://motrix-server:16801') {
+                $endpoint = $config->getAppValue('nddownloader', 'motrix_endpoint', (string)$config->getAppValue('motrix', 'motrix_endpoint', 'http://nd-server:16801'));
+                if (empty($endpoint) || $endpoint === 'http://motrix-server:16801') {
+                    $endpoint = 'http://nd-server:16801';
                 }
                 $config->setAppValue('nddownloader', 'nddownloader_endpoint', $endpoint);
             }
