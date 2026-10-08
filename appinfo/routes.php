@@ -15,7 +15,6 @@ return [
         ['name' => 'api#add_task', 'url' => '/api/tasks', 'verb' => 'POST'],
         ['name' => 'api#pause_task', 'url' => '/api/tasks/{taskId}/pause', 'verb' => 'POST'],
         ['name' => 'api#resume_task', 'url' => '/api/tasks/{taskId}/resume', 'verb' => 'POST'],
-        ['name' => 'api#delete_task', 'url' => '/api/tasks/{taskId}', 'verb' => 'DELETE'],
         ['name' => 'api#delete_task_fallback', 'url' => '/api/tasks/{taskId}/delete', 'verb' => 'POST'],
         ['name' => 'api#sync_task', 'url' => '/api/tasks/{taskId}/sync', 'verb' => 'POST'],
         ['name' => 'api#scan_path', 'url' => '/api/scan', 'verb' => 'POST'],

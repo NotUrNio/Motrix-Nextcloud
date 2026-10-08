@@ -27,52 +27,64 @@ class StorageSyncService {
     }
 
     /**
+     * Maps Motrix container download paths to candidate Nextcloud data paths.
+     */
+    public function mapPath(string $path): string {
+        $dataDir = rtrim((string)$this->config->getSystemValue('datadirectory', '/home/container/nextcloud/data'), '/');
+        $baseMotrixSaveDir = rtrim((string)$this->config->getAppValue('motrix', 'motrix_save_dir', '/downloads'), '/');
+        if (empty($baseMotrixSaveDir)) {
+            $baseMotrixSaveDir = '/downloads';
+        }
+
+        if (file_exists($path)) {
+            return $path;
+        }
+
+        if (str_starts_with($path, $baseMotrixSaveDir)) {
+            $rel = substr($path, strlen($baseMotrixSaveDir));
+            return $dataDir . '/' . ltrim($rel, '/');
+        }
+
+        if (str_starts_with($path, '/downloads')) {
+            $rel = substr($path, strlen('/downloads'));
+            return $dataDir . '/' . ltrim($rel, '/');
+        }
+
+        foreach (['/var/www/html/data', '/home/container/nextcloud/data'] as $altData) {
+            if (str_starts_with($path, $altData)) {
+                $rel = substr($path, strlen($altData));
+                return $dataDir . '/' . ltrim($rel, '/');
+            }
+        }
+
+        return $path;
+    }
+
+    /**
      * Translates paths reported by the Motrix container into real local paths in Nextcloud,
-     * verifying that the canonical realpath is within the Motrix download root.
+     * verifying that the canonical realpath is within the Motrix download root or Nextcloud datadirectory.
      */
     public function resolveLocalPath(?string $path): ?string {
         if (empty($path)) {
             return null;
         }
 
-        $dataDir = rtrim((string)$this->config->getSystemValue('datadirectory', '/home/container/nextcloud/data'), '/');
-        $realDataDir = realpath($dataDir);
-        if ($realDataDir === false) {
-            return null;
-        }
-
-        $baseMotrixSaveDir = rtrim((string)$this->config->getAppValue('motrix', 'motrix_save_dir', '/downloads'), '/');
-        if (empty($baseMotrixSaveDir)) {
-            $baseMotrixSaveDir = '/downloads';
-        }
-
-        $candidate = null;
-
-        if (file_exists($path)) {
-            $candidate = $path;
-        } elseif (str_starts_with($path, $baseMotrixSaveDir)) {
-            $rel = substr($path, strlen($baseMotrixSaveDir));
-            $candidate = $dataDir . '/' . ltrim($rel, '/');
-        } elseif (str_starts_with($path, '/downloads')) {
-            $rel = substr($path, strlen('/downloads'));
-            $candidate = $dataDir . '/' . ltrim($rel, '/');
-        } else {
-            foreach (['/var/www/html/data', '/home/container/nextcloud/data'] as $altData) {
-                if (str_starts_with($path, $altData)) {
-                    $rel = substr($path, strlen($altData));
-                    $candidate = $dataDir . '/' . ltrim($rel, '/');
-                    break;
-                }
-            }
-        }
-
-        if ($candidate === null || !file_exists($candidate)) {
+        $candidate = $this->mapPath($path);
+        if (!file_exists($candidate)) {
             return null;
         }
 
         $realPath = realpath($candidate);
         if ($realPath === false) {
             return null;
+        }
+
+        $dataDir = rtrim((string)$this->config->getSystemValue('datadirectory', '/home/container/nextcloud/data'), '/');
+        $realDataDir = realpath($dataDir);
+
+        $baseMotrixSaveDir = rtrim((string)$this->config->getAppValue('motrix', 'motrix_save_dir', '/downloads'), '/');
+        if (empty($baseMotrixSaveDir)) {
+            $baseMotrixSaveDir = '/downloads';
         }
 
         $allowedRoots = [];
@@ -97,7 +109,7 @@ class StorageSyncService {
         }
 
         if (!$isInsideAllowed) {
-            $this->logger->warning('Rejected file outside Motrix download root: ' . $realPath, [
+            $this->logger->warning('Rejected file outside Motrix download root or Nextcloud datadirectory: ' . $realPath, [
                 'app' => 'motrix',
                 'path' => $path,
             ]);
@@ -119,34 +131,45 @@ class StorageSyncService {
         $taskName = $task['name'] ?? 'download';
         $finalPath = $task['finalPath'] ?? null;
 
-        $resolvedPath = $this->resolveLocalPath($finalPath);
-
-        if ($resolvedPath === null) {
+        $motrixPath = $finalPath;
+        if (empty($motrixPath)) {
             $saveDir = $task['saveDir'] ?? '/downloads';
-            $potentialPath = rtrim($saveDir, '/') . '/' . $taskName;
-            $resolvedPath = $this->resolveLocalPath($potentialPath);
+            $motrixPath = rtrim($saveDir, '/') . '/' . $taskName;
         }
+
+        $resolvedPath = $this->resolveLocalPath($motrixPath);
 
         if ($resolvedPath === null && !empty($task['files']) && is_array($task['files'])) {
             foreach ($task['files'] as $f) {
                 $fPath = is_array($f) ? ($f['path'] ?? null) : null;
                 if (!empty($fPath)) {
-                    $resolvedPath = $this->resolveLocalPath($fPath);
-                    if ($resolvedPath !== null) {
+                    $resolvedCandidate = $this->resolveLocalPath($fPath);
+                    if ($resolvedCandidate !== null) {
+                        $resolvedPath = $resolvedCandidate;
+                        $motrixPath = $fPath;
                         break;
                     }
                 }
             }
         }
 
+        $dataDir = rtrim((string)$this->config->getSystemValue('datadirectory', '/home/container/nextcloud/data'), '/');
+
         if ($resolvedPath === null || !file_exists($resolvedPath)) {
+            $effectiveMotrixPath = (string)($motrixPath ?: $taskName);
+            $mappedPath = $this->mapPath($effectiveMotrixPath);
+            $message = "Completed file not found. Motrix path: {$effectiveMotrixPath}, mapped path: {$mappedPath}, datadirectory: {$dataDir}";
+            $this->logger->warning($message, [
+                'app' => 'motrix',
+                'user' => $userId,
+                'task' => $task['id'] ?? $task['taskId'] ?? 'unknown',
+            ]);
             return [
                 'synced' => false,
-                'message' => 'Completed file not found on filesystem at: ' . ($finalPath ?: $taskName),
+                'message' => $message,
             ];
         }
 
-        $dataDir = rtrim((string)$this->config->getSystemValue('datadirectory', '/home/container/nextcloud/data'), '/');
         $realUserDataDir = realpath($dataDir . '/' . $userId . '/files');
 
         // Check if the file is inside the user's personal storage directory (direct zero-copy mode)
@@ -192,25 +215,33 @@ class StorageSyncService {
             }
 
             $destFolder = $cleanTarget !== '' ? $userFolder->get($cleanTarget) : $userFolder;
+
+            $destFolderDir = $dataDir . '/' . $userId . '/files' . ($cleanTarget !== '' ? '/' . $cleanTarget : '');
+            if (!is_dir($destFolderDir)) {
+                @mkdir($destFolderDir, 0770, true);
+            }
+
             $fileName = basename($resolvedPath);
 
             // Avoid collisions
             $destName = $fileName;
             $counter = 1;
-            while ($destFolder->nodeExists($destName)) {
+            while ($destFolder->nodeExists($destName) || file_exists($destFolderDir . '/' . $destName)) {
                 $info = pathinfo($fileName);
                 $ext = isset($info['extension']) ? '.' . $info['extension'] : '';
                 $destName = $info['filename'] . " ($counter)" . $ext;
                 $counter++;
             }
 
-            // Write or copy stream into Nextcloud storage
+            $destPath = $destFolderDir . '/' . $destName;
+
             if (is_file($resolvedPath)) {
-                $destFile = $destFolder->newFile($destName);
-                $stream = fopen($resolvedPath, 'rb');
-                if ($stream !== false) {
-                    $destFile->setContent($stream);
-                    fclose($stream);
+                set_time_limit(0);
+                if (!@rename($resolvedPath, $destPath)) {
+                    if (!@copy($resolvedPath, $destPath)) {
+                        throw new \RuntimeException("Failed to move or copy file to destination: {$destPath}");
+                    }
+                    @unlink($resolvedPath);
                 }
             } elseif (is_dir($resolvedPath)) {
                 $this->copyDirectoryToNextcloud($resolvedPath, $destFolder->newFolder($destName));
@@ -239,6 +270,7 @@ class StorageSyncService {
 
             return [
                 'synced' => false,
+                'message' => $e->getMessage(),
                 'error' => $e->getMessage(),
             ];
         }

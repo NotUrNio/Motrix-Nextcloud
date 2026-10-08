@@ -225,7 +225,7 @@ class MotrixClient {
             return !empty($result['ok']);
         } catch (\Throwable $e) {
             $msg = strtolower($e->getMessage());
-            if (str_contains($msg, 'not found') || str_contains($msg, '404')) {
+            if (str_contains($msg, 'not found')) {
                 return true;
             }
             throw $e;

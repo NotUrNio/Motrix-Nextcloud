@@ -312,30 +312,22 @@
             }
 
             try {
-                const token = getRequestToken();
-                let res = await fetch(getApiUrl(`/api/tasks/${taskId}`), {
-                    method: 'DELETE',
-                    headers: { 'requesttoken': token }
+                const res = await fetch(getApiUrl(`/api/tasks/${encodeURIComponent(taskId)}/delete`), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'requesttoken': getRequestToken(),
+                    },
+                    body: JSON.stringify({ deleteFiles: false }),
                 });
-
-                if (!res.ok) {
-                    res = await fetch(getApiUrl(`/api/tasks/${taskId}/delete`), {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'requesttoken': token,
-                        }
-                    });
-                }
 
                 const data = await safeParseJson(res);
                 if (data.success) {
                     allTasks = allTasks.filter(t => t.id !== taskId);
                     renderTasks();
                     updateCounts();
-                    showNotification('Task removed', 'info');
                 } else {
-                    showNotification('Could not remove task: ' + (data.error || 'Unknown error'), 'error');
+                    showNotification(data.error || 'Could not remove task', 'error');
                     if (card) {
                         card.style.opacity = '1';
                         card.style.pointerEvents = 'auto';
@@ -343,24 +335,12 @@
                 }
             } catch (err) {
                 console.error('[Motrix] Error deleting task:', err);
-                try {
-                    const token = getRequestToken();
-                    await fetch(getApiUrl(`/api/tasks/${taskId}/delete`), {
-                        method: 'POST',
-                        headers: { 'requesttoken': token }
-                    });
-                    allTasks = allTasks.filter(t => t.id !== taskId);
-                    renderTasks();
-                    updateCounts();
-                } catch (_) {
-                    showNotification('Error removing task: ' + err.message, 'error');
-                    if (card) {
-                        card.style.opacity = '1';
-                        card.style.pointerEvents = 'auto';
-                    }
+                showNotification('Error removing task: ' + err.message, 'error');
+                if (card) {
+                    card.style.opacity = '1';
+                    card.style.pointerEvents = 'auto';
                 }
             }
-            fetchTasks();
         },
         syncTask: async (taskId) => {
             const task = allTasks.find(t => t.id === taskId);

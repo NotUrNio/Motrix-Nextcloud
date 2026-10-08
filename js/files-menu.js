@@ -444,22 +444,24 @@
                         return;
                     }
                     btn.textContent = 'Removing...';
-                    let delRes = await fetch(getApiUrl(`/api/tasks/${taskId}`), {
-                        method: 'DELETE',
-                        headers: { 'requesttoken': getRequestToken() },
+                    const delRes = await fetch(getApiUrl(`/api/tasks/${taskId}/delete`), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'requesttoken': getRequestToken(),
+                        },
+                        body: JSON.stringify({ deleteFiles: false }),
                     });
-                    if (!delRes.ok) {
-                        await fetch(getApiUrl(`/api/tasks/${taskId}/delete`), {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'requesttoken': getRequestToken()
-                            },
-                        });
+                    const data = await delRes.json().catch(() => ({}));
+                    if (delRes.ok && data.success) {
+                        const card = document.getElementById(`motrix-task-${taskId}`);
+                        if (card) card.remove();
+                        showToast('Download task removed', 'info');
+                    } else {
+                        const errMsg = data.error || `Failed to remove task (HTTP ${delRes.status})`;
+                        showToast(errMsg, 'error');
+                        btn.textContent = '✕ Remove';
                     }
-                    const card = document.getElementById(`motrix-task-${taskId}`);
-                    if (card) card.remove();
-                    showToast('Download task removed', 'info');
                 }
             } catch (err) {
                 console.error('[Motrix] Action failed:', err);
@@ -973,100 +975,6 @@
     }
 
     /**
-     * Attaches a primary header shortcut button right next to "+ New".
-     */
-    function attachHeaderButton() {
-        // Clean up any old duplicate breadcrumb button
-        const oldQuick = document.getElementById('motrix-quick-header-btn');
-        if (oldQuick) oldQuick.remove();
-
-        // If button already exists in header, do not duplicate
-        if (document.getElementById('motrix-header-btn')) return;
-
-        // Find upload picker (+ New button container)
-        const uploadPicker = document.querySelector('.upload-picker, [data-cy-upload-picker]');
-        if (!uploadPicker) return;
-
-        // Clean up any stray child mistakenly appended into uploadPicker
-        const strayLis = uploadPicker.querySelectorAll('li#motrix-dom-menu-entry, li');
-        strayLis.forEach(el => el.remove());
-
-        const btn = document.createElement('button');
-        btn.id = 'motrix-header-btn';
-        btn.className = 'motrix-header-btn button-vue';
-        btn.type = 'button';
-        btn.setAttribute('aria-label', 'Download with Motrix');
-        btn.title = 'Download directly to this folder with Motrix';
-        btn.innerHTML = `
-            <span class="motrix-btn-icon">${MOTRIX_SVG_ICON}</span>
-            <span class="motrix-btn-text">Download with Motrix</span>
-        `;
-
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            openMotrixModal(getCurrentFolder());
-        });
-
-        // Insert immediately after the + New container
-        uploadPicker.insertAdjacentElement('afterend', btn);
-    }
-
-    /**
-     * Fallback DOM injector for the "+ New" popover menu.
-     * ONLY injects into the open popover menu. NEVER touches .upload-picker.
-     */
-    function attachPopoverMenuObserver() {
-        const observer = new MutationObserver(() => {
-            // Keep header shortcut button attached
-            attachHeaderButton();
-
-            // Find open upload picker or menu popovers
-            const openMenuLists = document.querySelectorAll('.popover__wrapper ul[role="menu"], [data-cy-upload-picker-menu] ul[role="menu"], .popover__wrapper .action-menu');
-            openMenuLists.forEach(menuList => {
-                // If entry already present, skip
-                if (menuList.querySelector('[data-cy-upload-picker-menu-entry="motrix-download"]') ||
-                    menuList.querySelector('#motrix-popover-menu-entry')) {
-                    return;
-                }
-
-                // Create clean menu item matching Nextcloud styling
-                const li = document.createElement('li');
-                li.id = 'motrix-popover-menu-entry';
-                li.className = 'action-menu__item';
-                li.setAttribute('role', 'presentation');
-
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'action-button action-button--primary upload-picker__menu-entry button-vue';
-                btn.setAttribute('role', 'menuitem');
-                btn.setAttribute('data-cy-upload-picker-menu-entry', 'motrix-download');
-
-                btn.innerHTML = `
-                    <span class="action-button__icon motrix-menu-icon">${MOTRIX_SVG_ICON}</span>
-                    <span class="action-button__title">Download with Motrix</span>
-                `;
-
-                btn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-
-                    // Close menu
-                    const trigger = document.querySelector('[data-cy-upload-picker] button, .upload-picker button');
-                    if (trigger) trigger.click();
-
-                    openMotrixModal(getCurrentFolder());
-                });
-
-                li.appendChild(btn);
-                menuList.appendChild(li);
-            });
-        });
-
-        observer.observe(document.body, { childList: true, subtree: true });
-    }
-
-    /**
      * Global drag & drop listener on Files view.
      */
     function attachGlobalDropListener() {
@@ -1096,41 +1004,13 @@
         });
     }
 
-    /**
-     * Initialization routine.
-     */
     function init() {
-        console.log('[Motrix] Initializing Nextcloud Files shortcut integration...');
-
-        // Clean up any old duplicate buttons
-        const oldQuick = document.getElementById('motrix-quick-header-btn');
-        if (oldQuick) oldQuick.remove();
-
-        // Attach header button
-        attachHeaderButton();
-
-        // Try immediate registration
         registerInNewFileMenu();
-
-        // Retry registration at intervals until Nextcloud Vue scope / newFileMenu is ready
         let attempts = 0;
         const regInterval = setInterval(() => {
             attempts++;
-            attachHeaderButton();
-            if (registerInNewFileMenu() || attempts > 20) {
-                if (registerInNewFileMenu()) {
-                    clearInterval(regInterval);
-                }
-            }
-            if (attempts > 30) {
-                clearInterval(regInterval);
-            }
+            if (registerInNewFileMenu() || attempts > 30) clearInterval(regInterval);
         }, 300);
-
-        // Attach popover menu observer
-        attachPopoverMenuObserver();
-
-        // Attach global drop listener
         attachGlobalDropListener();
     }
 

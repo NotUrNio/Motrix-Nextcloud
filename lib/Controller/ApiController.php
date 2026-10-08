@@ -357,6 +357,9 @@ class ApiController extends Controller {
 
         try {
             $ok = $this->motrixClient->removeTask($taskId, $deleteFiles);
+            if (!$ok) {
+                return new DataResponse(['success' => false, 'error' => 'Motrix did not remove the task'], Http::STATUS_BAD_GATEWAY);
+            }
             $this->taskOwnershipService->deleteTask($taskId);
             return new DataResponse(['success' => true, 'removed' => $ok]);
         } catch (\Throwable $e) {
@@ -403,6 +406,15 @@ class ApiController extends Controller {
             $cleanFolder = $this->normalizeTargetFolder($effectiveFolder);
 
             $result = $this->storageSyncService->syncCompletedTask($userId, $task, $cleanFolder);
+            if (empty($result['synced'])) {
+                $message = $result['message'] ?? $result['error'] ?? 'Task could not be synced';
+                return new DataResponse([
+                    'success' => false,
+                    'message' => $message,
+                    'error' => $message,
+                    'result' => $result,
+                ], Http::STATUS_UNPROCESSABLE_ENTITY);
+            }
             return new DataResponse(['success' => true, 'result' => $result]);
         } catch (\Throwable $e) {
             return new DataResponse(['success' => false, 'error' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
