@@ -1,0 +1,80 @@
+name: Build & Release ND Downloader
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  test_and_package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: curl, mbstring, openssl, simplexml, dom
+          coverage: none
+
+      - name: Lint PHP Files
+        run: |
+          find . -type f -name "*.php" -not -path "*/vendor/*" -not -path "*/build/*" -exec php -l {} \;
+
+      - name: Run Unit Tests
+        run: |
+          php tests/run_tests.php
+
+      - name: Package Release Archive
+        id: package
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Packaging ND Downloader v${VERSION}..."
+          mkdir -p build/nddownloader
+          cp -r appinfo build/nddownloader/
+          cp -r lib build/nddownloader/
+          cp -r templates build/nddownloader/
+          cp -r js build/nddownloader/
+          cp -r css build/nddownloader/
+          cp -r img build/nddownloader/
+          cp -r l10n build/nddownloader/
+          cp LICENSE build/nddownloader/
+          cp THIRD_PARTY_NOTICES.md build/nddownloader/
+          cp CHANGELOG.md build/nddownloader/
+          cp README.md build/nddownloader/
+
+          cd build
+          tar -czf "nddownloader.tar.gz" nddownloader
+          cp "nddownloader.tar.gz" "nddownloader-${GITHUB_REF_NAME}.tar.gz"
+          cd ..
+
+      - name: Sign Release Archive (if private key secret configured)
+        id: sign
+        run: |
+          if [ -n "${{ secrets.APP_PRIVATE_KEY }}" ]; then
+            echo "Signing archive with private key..."
+            echo "${{ secrets.APP_PRIVATE_KEY }}" > /tmp/app.key
+            openssl dgst -sha512 -sign /tmp/app.key build/nddownloader.tar.gz | openssl base64 > build/nddownloader.tar.gz.sig
+            shred -u /tmp/app.key || rm -f /tmp/app.key
+            echo "Signature generated."
+          else
+            echo "::warning ::APP_PRIVATE_KEY secret is not configured. Release archive will not be signed automatically."
+          fi
+
+      - name: Create GitHub Release & Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/nddownloader.tar.gz
+            build/nddownloader-${{ github.ref_name }}.tar.gz
+            build/nddownloader.tar.gz.sig
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

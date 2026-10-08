@@ -266,3 +266,8 @@ Upon user approval of this audit, Phase 1 will implement the following structure
 - [x] Added `phpunit.xml.dist` and `composer.json` for CI/PHPUnit test execution.
 - [x] Added `psalm.xml.dist` for Psalm static analysis configuration.
 - [x] All 13 unit tests passing; all PHP files verified with `php -l`.
+
+### 5. Phase 2 Release Tooling (Completed)
+- [x] Created `Makefile` and `scripts/build-release.sh` building `nddownloader.tar.gz` with single top-level `nddownloader/` directory matching Nextcloud App Store packaging rules.
+- [x] Created `.github/workflows/release.yml` for automated release packaging, secret signing via `APP_PRIVATE_KEY`, and GitHub Release asset publishing.
+- [x] Created `docs/RELEASING.md` documenting step-by-step instructions for RSA 4096 CSR generation, submission to `nextcloud/app-certificate-requests`, app registration, signing, and App Store publication.
