@@ -13,6 +13,9 @@
         const endpointInput = document.getElementById('nddownloader_admin_endpoint');
         const savedirInput = document.getElementById('nddownloader_admin_savedir');
         const tokenInput = document.getElementById('nddownloader_admin_token');
+        const allowlistInput = document.getElementById('nddownloader_admin_allowlist');
+        const denylistInput = document.getElementById('nddownloader_admin_denylist');
+        const allowPrivateInput = document.getElementById('nddownloader_admin_allow_private');
         const statusEl = document.getElementById('nddownloader_admin_status');
 
         if (!saveBtn) return;
@@ -35,8 +38,17 @@
             const endpoint = endpointInput ? endpointInput.value.trim() : '';
             const saveDir = savedirInput ? savedirInput.value.trim() : '';
             const token = tokenInput ? tokenInput.value.trim() : '';
+            const domainAllowlist = allowlistInput ? allowlistInput.value.trim() : '';
+            const domainDenylist = denylistInput ? denylistInput.value.trim() : '';
+            const allowPrivateNetwork = allowPrivateInput && allowPrivateInput.checked ? 'yes' : 'no';
 
-            const payload = { endpoint, saveDir };
+            const payload = {
+                endpoint,
+                saveDir,
+                domainAllowlist,
+                domainDenylist,
+                allowPrivateNetwork,
+            };
             if (token !== '') {
                 payload.token = token;
             }

@@ -452,11 +452,13 @@ class ApiController extends Controller {
         return new DataResponse([
             'success' => true,
             'isAdmin' => $isAdmin,
-            // Only expose internal endpoint URL to administrators
+            // Only expose internal endpoint URL and security lists to administrators
             'endpoint' => $isAdmin ? $this->ndClient->getEndpoint() : '',
             'saveDir' => $this->ndClient->getDefaultSaveDir(),
             'hasToken' => !empty($this->ndClient->getToken()),
             'allowPrivateNetwork' => $this->config->getAppValue('nddownloader', UrlValidator::CONFIG_ALLOW_PRIVATE, 'no') === 'yes',
+            'domainAllowlist' => $isAdmin ? (string)$this->config->getAppValue('nddownloader', UrlValidator::CONFIG_DOMAIN_ALLOWLIST, '') : '',
+            'domainDenylist' => $isAdmin ? (string)$this->config->getAppValue('nddownloader', UrlValidator::CONFIG_DOMAIN_DENYLIST, '') : '',
             'maxActiveTasksPerUser' => (int)$this->config->getAppValue('nddownloader', 'max_active_tasks_per_user', '5'),
         ]);
     }
@@ -466,6 +468,8 @@ class ApiController extends Controller {
         ?string $token = null,
         ?string $saveDir = null,
         ?string $allowPrivateNetwork = null,
+        ?string $domainAllowlist = null,
+        ?string $domainDenylist = null,
         ?int $maxActiveTasksPerUser = null
     ): DataResponse {
         $user = $this->userSession->getUser();
@@ -486,6 +490,14 @@ class ApiController extends Controller {
         if ($allowPrivateNetwork !== null) {
             $val = in_array(strtolower($allowPrivateNetwork), ['yes', 'true', '1'], true) ? 'yes' : 'no';
             $this->config->setAppValue('nddownloader', UrlValidator::CONFIG_ALLOW_PRIVATE, $val);
+        }
+
+        if ($domainAllowlist !== null) {
+            $this->config->setAppValue('nddownloader', UrlValidator::CONFIG_DOMAIN_ALLOWLIST, trim($domainAllowlist));
+        }
+
+        if ($domainDenylist !== null) {
+            $this->config->setAppValue('nddownloader', UrlValidator::CONFIG_DOMAIN_DENYLIST, trim($domainDenylist));
         }
 
         if ($maxActiveTasksPerUser !== null && $maxActiveTasksPerUser >= 0) {

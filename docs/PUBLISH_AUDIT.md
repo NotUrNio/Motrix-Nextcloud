@@ -253,7 +253,7 @@ Upon user approval of this audit, Phase 1 will implement the following structure
 - [x] **Step B (Complete):** Access control hardening & rate limiting. Removed `#[NoAdminRequired]` from `startEngine()` and `getStatus()`. Added `#[UserRateLimit]` to `startEngine`, `testConnection`, `syncTask`, `deleteTask`, and `deleteTaskFallback`. Removed hardcoded host triggers from `startEngine()`.
 - [x] **Step C (Complete):** Token storage encryption. Implemented `\OCP\Security\ICrypto` encryption/decryption in `NdDownloaderClient` and created migration `Version1001Date20261008000000.php` to encrypt existing tokens in place. Retained NC 28 compatibility.
 - [x] **Step G (Complete):** Refactored `StorageSyncService.php` to use Nextcloud's `IRootFolder` / `IUserFolder` APIs exclusively. Replaced disk-level `rename()` and `copy()` with stream-based `setContent()`, supporting S3 / MinIO primary object storage and external storages. Replaced simplistic path cleaning with strict segment validation and boundary containment. Completely removed `datadirectory` and host path assumptions.
-- [ ] **Step H:** Implement Admin Domain/IP Allowlist and Denylist in `UrlValidator.php` to prevent SSRF and DNS rebinding attacks.
+- [x] **Step H (Complete):** Hardened `UrlValidator.php` against SSRF and DNS rebinding attacks. Implemented administrator-configurable domain allowlist and denylist policies, strict unconditional blocking of cloud metadata (169.254.169.254, AWS/GCP/Azure/OpenStack) and loopback ranges, and integrated security settings into Admin Settings UI, API endpoints, and JavaScript handlers.
 
 ### 3. Server Deployment Documentation & Consistency
 - [ ] Provide a tested `docker-compose.yml` for running Nextcloud + ND Downloader server with a shared volume.
