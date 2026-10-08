@@ -108,20 +108,18 @@ A scan of the codebase reveals lingering environment-specific paths (Pterodactyl
 * **Finding:** CSRF protection is properly active on state-changing endpoints.
 
 ### 3.2 Authentication & Privilege Escalation Vulnerabilities
-1. **Critical Privilege Escalation in `startEngine()` (`lib/Controller/ApiController.php`):**
-   * The route `POST /apps/nddownloader/api/engine/start` has attribute `#[NoAdminRequired]`.
-   * Any authenticated standard user can trigger `@touch('/home/container/nd_start_trigger')` AND mutate global system settings:
-     ```php
-     $this->config->setAppValue('nddownloader', NdDownloaderClient::CONFIG_ENDPOINT, 'http://nd-server:16801');
-     ```
-   * **Severity: HIGH.** Standard users must never be allowed to overwrite global application settings or trigger host actions. Must be changed to `#[AdminRequired]`.
-2. **Missing User Session Check on `getStatus()` and `getStats()` (`lib/Controller/ApiController.php`):**
-   * Routes `GET /api/status` and `GET /api/stats` have `#[NoAdminRequired]`.
-   * Neither route checks `$this->userSession->isLoggedIn()`. Unauthenticated visitors/guests could poll internal daemon status and bandwidth metrics.
-   * **Severity: MEDIUM.** Require an active user session or restrict appropriately.
-3. **Admin Settings Endpoint Redundancy & Authorization:**
-   * Settings are saved via two separate endpoints: `SettingsController::save` (admin page form) and `ApiController::saveSettings` (REST API).
-   * `ApiController::saveSettings` uses manual `groupManager->isAdmin()` checking instead of declarative `#[AdminRequired]`.
+> [!NOTE]
+> **Nextcloud Authorization Model:** In Nextcloud, controller methods require administrator privileges by default unless explicitly decorated with `#[NoAdminRequired]`. There is no `#[AdminRequired]` attribute. Furthermore, `#[NoAdminRequired]` restricts endpoints to authenticated logged-in users; only `#[PublicPage]` permits unauthenticated public/guest access. Because no routes use `#[PublicPage]`, unauthenticated guests were never admitted.
+
+1. **Privilege Escalation in `startEngine()` (`lib/Controller/ApiController.php`):**
+   * Previously tagged with `#[NoAdminRequired]`.
+   * Any authenticated standard user could trigger host watchdog files and mutate global application settings (`CONFIG_ENDPOINT`, `CONFIG_TOKEN`).
+   * **Resolution (Step B):** Removed `#[NoAdminRequired]` (making it admin-only by default) and added explicit admin role checks. Removed hardcoded `@touch('/home/container/...')` calls, replacing them with an optional admin-configured trigger path. Added `#[UserRateLimit(limit: 10, period: 60)]`.
+2. **Access Control on `getStatus()` and `getStats()`:**
+   * Both previously carried `#[NoAdminRequired]`.
+   * **Resolution (Step B):** `getStatus()` is not needed by regular users and has had `#[NoAdminRequired]` removed (now admin-only). `getStats()` is used by the frontend speed indicator and retains `#[NoAdminRequired]`, but now explicitly verifies an active logged-in user session.
+3. **Missing Rate Limiting on Administrative & Resource-Intensive Actions:**
+   * **Resolution (Step B):** Native Nextcloud `#[UserRateLimit]` attribute applied to `startEngine`, `testConnection`, `syncTask`, `deleteTask`, and `deleteTaskFallback`.
 
 ### 3.3 Server-Side Request Forgery (SSRF) & DNS Rebinding
 * **Current State:** `UrlValidator.php` parses URLs and checks against private IP ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `127.0.0.0/8`, `fc00::/7`, `fe80::/10`).
@@ -235,8 +233,7 @@ Upon user approval of this audit, Phase 1 will implement the following structure
 
 ### 2. Environment Hardcoding & Security Remediation
 - [x] **Step A (Complete):** Removed hardcoded fallback token `6wiYws5...` from `NdDownloaderClient.php`, `ApiController.php`, and migrations. Removed 401 config-mutating auto-heal. Added compromise notice.
-- [ ] Restrict `startEngine()` in `ApiController.php` to admin-only (prevent privilege escalation).
-- [ ] Make Pterodactyl trigger path `/home/container/nd_start_trigger` optional and configurable via Admin Settings (disabled by default, with host path validation).
+- [x] **Step B (Complete):** Access control hardening & rate limiting. Removed `#[NoAdminRequired]` from `startEngine()` and `getStatus()`. Added `#[UserRateLimit]` to `startEngine`, `testConnection`, `syncTask`, `deleteTask`, and `deleteTaskFallback`. Removed hardcoded host triggers from `startEngine()`.
 - [ ] Remove `/home/container/...` and hardcoded disk path fallbacks from `StorageSyncService.php`.
 - [ ] Refactor `StorageSyncService.php` to use Nextcloud's `IRootFolder` / `IUserFolder` APIs so it works seamlessly on standard storage and S3 Object Storage, with recursive traversal protection.
 - [ ] Implement Admin Domain/IP Allowlist and Denylist in `UrlValidator.php` to prevent SSRF and DNS rebinding attacks.

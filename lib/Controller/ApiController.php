@@ -106,7 +106,6 @@ class ApiController extends Controller {
         };
     }
 
-    #[NoAdminRequired]
     public function getStatus(): DataResponse {
         try {
             $status = $this->ndClient->getEngineStatus();
@@ -121,6 +120,11 @@ class ApiController extends Controller {
 
     #[NoAdminRequired]
     public function getStats(): DataResponse {
+        $user = $this->userSession->getUser();
+        if (!$user) {
+            return new DataResponse(['success' => false, 'error' => 'User not logged in'], Http::STATUS_UNAUTHORIZED);
+        }
+
         try {
             $stats = $this->ndClient->getStats();
             return new DataResponse(['success' => true, 'stats' => $stats]);
@@ -345,6 +349,7 @@ class ApiController extends Controller {
     }
 
     #[NoAdminRequired]
+    #[UserRateLimit(limit: 30, period: 60)]
     public function deleteTask(string $taskId, bool $deleteFiles = false): DataResponse {
         $user = $this->userSession->getUser();
         if (!$user) {
@@ -368,11 +373,13 @@ class ApiController extends Controller {
     }
 
     #[NoAdminRequired]
+    #[UserRateLimit(limit: 30, period: 60)]
     public function deleteTaskFallback(string $taskId, bool $deleteFiles = false): DataResponse {
         return $this->deleteTask($taskId, $deleteFiles);
     }
 
     #[NoAdminRequired]
+    #[UserRateLimit(limit: 30, period: 60)]
     public function syncTask(string $taskId, string $targetFolder = ''): DataResponse {
         $user = $this->userSession->getUser();
         if (!$user) {
@@ -488,6 +495,7 @@ class ApiController extends Controller {
         return new DataResponse(['success' => true]);
     }
 
+    #[UserRateLimit(limit: 20, period: 60)]
     public function testConnection(): DataResponse {
         $user = $this->userSession->getUser();
         if (!$user || !$this->groupManager->isAdmin($user->getUID())) {
@@ -498,23 +506,19 @@ class ApiController extends Controller {
         return new DataResponse($res);
     }
 
-    #[NoAdminRequired]
+    #[UserRateLimit(limit: 10, period: 60)]
     public function startEngine(): DataResponse {
         $user = $this->userSession->getUser();
-        if (!$user) {
-            return new DataResponse(['success' => false, 'error' => 'User not logged in'], Http::STATUS_UNAUTHORIZED);
+        if (!$user || !$this->groupManager->isAdmin($user->getUID())) {
+            return new DataResponse(['success' => false, 'error' => 'Admin privileges required'], Http::STATUS_FORBIDDEN);
         }
 
         try {
-            // Signal host watchdog trigger to ensure nd-server container is running
-            @touch('/home/container/nd_start_trigger');
-            @touch('/home/container/motrix_start_trigger');
-
-            // Ensure endpoint configuration is valid
-            $endpoint = $this->ndClient->getEndpoint();
-            if (empty($endpoint) || str_contains($endpoint, '127.0.0.1') || $endpoint === 'http://motrix-server:16801') {
-                $this->config->setAppValue('nddownloader', NdDownloaderClient::CONFIG_ENDPOINT, 'http://nd-server:16801');
-                $this->config->setAppValue('nddownloader', 'motrix_endpoint', 'http://nd-server:16801');
+            // Optional admin-configured host watchdog trigger file (e.g. for container watchdogs)
+            $triggerFile = (string)$this->config->getAppValue('nddownloader', 'start_trigger_path', '');
+            if (!empty($triggerFile) && @file_exists(dirname($triggerFile))) {
+                @touch($triggerFile);
+                sleep(1);
             }
 
             // Test connection
@@ -532,25 +536,27 @@ class ApiController extends Controller {
                 ]);
             }
 
-            // If container was starting up, wait briefly and retry
-            sleep(2);
-            $retryRes = $this->ndClient->testConnection();
-            if (!empty($retryRes['success'])) {
-                $version = $retryRes['engine']['featureReport']['version'] ?? 'ready';
-                $state = $retryRes['engine']['state'] ?? 'ready';
-                return new DataResponse([
-                    'success' => true,
-                    'message' => "ND Downloader engine started successfully (Aria2 {$version})",
-                    'version' => $version,
-                    'state' => $state,
-                    'engine' => $retryRes['engine'] ?? null,
-                    'stats' => $retryRes['stats'] ?? null,
-                ]);
+            // If a trigger was run, wait briefly and retry once
+            if (!empty($triggerFile)) {
+                sleep(2);
+                $retryRes = $this->ndClient->testConnection();
+                if (!empty($retryRes['success'])) {
+                    $version = $retryRes['engine']['featureReport']['version'] ?? 'ready';
+                    $state = $retryRes['engine']['state'] ?? 'ready';
+                    return new DataResponse([
+                        'success' => true,
+                        'message' => "ND Downloader engine started successfully (Aria2 {$version})",
+                        'version' => $version,
+                        'state' => $state,
+                        'engine' => $retryRes['engine'] ?? null,
+                        'stats' => $retryRes['stats'] ?? null,
+                    ]);
+                }
             }
 
             return new DataResponse([
                 'success' => false,
-                'error' => $retryRes['error'] ?? 'ND Downloader engine could not be reached',
+                'error' => $res['error'] ?? 'ND Downloader engine could not be reached',
             ], Http::STATUS_SERVICE_UNAVAILABLE);
         } catch (\Throwable $e) {
             return new DataResponse([
