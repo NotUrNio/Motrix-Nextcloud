@@ -155,15 +155,18 @@ A scan of the codebase reveals lingering environment-specific paths (Pterodactyl
 
 1. **`OCP\Util::addScript` & `OCP\Util::addStyle`:**
    * Used in `PageController.php`, `AdminSettings.php`, and `FilesLoadAdditionalScriptsListener.php`.
-   * **Status:** Deprecated since Nextcloud 19. In modern Nextcloud, assets should be attached directly to the `TemplateResponse` via `$response->addScript(...)` and `$response->addStyle(...)`.
+   * **Verification Status:** Contrary to assumptions, `OCP\Util::addScript` is **not deprecated** in Nextcloud core (it remains the documented mechanism for injecting scripts inside event listeners). However, in controller actions returning a `TemplateResponse`, best practice is to attach them directly to the response object (`$response->addScript(...)` and `$response->addStyle(...)`).
+   * **Resolution (Step F):** Refactored `PageController::index()` to call `$response->addScript('nddownloader', 'app')` and `$response->addStyle('nddownloader', 'style')` directly. `AdminSettings.php` already does this.
 2. **`OCA\Files\Event\LoadAdditionalScriptsEvent`:**
    * Used in `Application.php` and `FilesLoadAdditionalScriptsListener.php` to inject `files-menu.js`.
-   * **Status:** Deprecated in Nextcloud 28+ following the Vue 3 rewrite of the Files app. While retained for backward compatibility in NC 28, Nextcloud 30+ deprecates script injection into Files in favor of `@nextcloud/files` app integration. For NC 28–31 compatibility, the listener continues to function, but code should handle missing events gracefully.
+   * **Verification Status:** `LoadAdditionalScriptsEvent` remains supported across NC 28 through NC 31. However, listeners must safely handle unauthenticated contexts (e.g. public shares) where `IUserSession->getUser()` may be null.
+   * **Resolution (Step F):** Injected `IUserSession` into `FilesLoadAdditionalScriptsListener` and added an explicit `$this->userSession->isLoggedIn()` guard so shortcut scripts are only loaded in authenticated user sessions.
 3. **`OCP\IConfig::getSystemValue('datadirectory')`:**
    * Used in `StorageSyncService.php`.
-   * **Status:** Discouraged for app code. Apps should use `\OCP\Files\IRootFolder::getUserFolder($userId)` to ensure full compatibility with external storages and S3.
+   * **Status:** Raw disk paths break on S3/MinIO Primary Object Storage and bypass Nextcloud file metadata.
+   * **Resolution (Step G):** Completely eliminated in favor of `IRootFolder->getUserFolder($userId)`.
 4. **PHP Template Engines (`TemplateResponse`):**
-   * Nextcloud 28+ encourages modern Vue frontend components over `.php` templates in `templates/`. Traditional PHP templates are still supported for backward compatibility, but produce deprecation notices in `nextcloud.log` on newer versions.
+   * Traditional PHP templates in `templates/` remain fully supported across NC 28–31. Future major versions will encourage Vue single-page components.
 
 ---
 

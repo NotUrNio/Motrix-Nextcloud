@@ -7,6 +7,7 @@ namespace OCA\NdDownloader\Listener;
 use OCA\Files\Event\LoadAdditionalScriptsEvent;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
+use OCP\IUserSession;
 use OCP\Util;
 
 /**
@@ -15,8 +16,17 @@ use OCP\Util;
  * @template-implements IEventListener<LoadAdditionalScriptsEvent>
  */
 class FilesLoadAdditionalScriptsListener implements IEventListener {
+    public function __construct(
+        private IUserSession $userSession,
+    ) {
+    }
+
     public function handle(Event $event): void {
         if (!($event instanceof LoadAdditionalScriptsEvent)) {
+            return;
+        }
+
+        if (!$this->userSession->isLoggedIn()) {
             return;
         }
 

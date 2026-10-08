@@ -9,7 +9,6 @@ use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\IRequest;
-use OCP\Util;
 
 class PageController extends Controller {
     public function __construct(string $appName, IRequest $request) {
@@ -19,9 +18,10 @@ class PageController extends Controller {
     #[NoAdminRequired]
     #[NoCSRFRequired]
     public function index(): TemplateResponse {
-        Util::addScript('nddownloader', 'app');
-        Util::addStyle('nddownloader', 'style');
+        $response = new TemplateResponse('nddownloader', 'main', [], 'user');
+        $response->addScript('nddownloader', 'app');
+        $response->addStyle('nddownloader', 'style');
 
-        return new TemplateResponse('nddownloader', 'main', [], 'user');
+        return $response;
     }
 }
