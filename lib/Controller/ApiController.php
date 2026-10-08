@@ -476,7 +476,7 @@ class ApiController extends Controller {
         $this->config->setAppValue('nddownloader', NdDownloaderClient::CONFIG_ENDPOINT, rtrim($endpoint, '/'));
 
         if ($token !== null && trim($token) !== '') {
-            $this->config->setAppValue('nddownloader', NdDownloaderClient::CONFIG_TOKEN, trim($token));
+            $this->ndClient->setToken(trim($token));
         }
 
         if (!empty($saveDir)) {

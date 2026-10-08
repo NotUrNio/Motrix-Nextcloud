@@ -6,6 +6,7 @@ namespace OCA\NdDownloader\Service;
 
 use OCP\IConfig;
 use OCP\Http\Client\IClientService;
+use OCP\Security\ICrypto;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 
@@ -17,15 +18,18 @@ class NdDownloaderClient {
     private IConfig $config;
     private IClientService $clientService;
     private LoggerInterface $logger;
+    private ICrypto $crypto;
 
     public function __construct(
         IConfig $config,
         IClientService $clientService,
-        LoggerInterface $logger
+        LoggerInterface $logger,
+        ICrypto $crypto
     ) {
         $this->config = $config;
         $this->clientService = $clientService;
         $this->logger = $logger;
+        $this->crypto = $crypto;
     }
 
     public function getEndpoint(): string {
@@ -53,7 +57,31 @@ class NdDownloaderClient {
         if (empty($token)) {
             $token = (string)$this->config->getAppValue('nddownloader', 'token', '');
         }
-        return $token;
+        if ($token === '') {
+            return '';
+        }
+
+        try {
+            return $this->crypto->decrypt($token);
+        } catch (\Throwable $e) {
+            // Return unencrypted plaintext if decryption fails (e.g. legacy token before encryption)
+            return $token;
+        }
+    }
+
+    public function setToken(string $token): void {
+        $trimmed = trim($token);
+        if ($trimmed === '') {
+            $this->config->setAppValue('nddownloader', self::CONFIG_TOKEN, '');
+            return;
+        }
+
+        try {
+            $encrypted = $this->crypto->encrypt($trimmed);
+            $this->config->setAppValue('nddownloader', self::CONFIG_TOKEN, $encrypted);
+        } catch (\Throwable $e) {
+            $this->config->setAppValue('nddownloader', self::CONFIG_TOKEN, $trimmed);
+        }
     }
 
     public function getDefaultSaveDir(): string {

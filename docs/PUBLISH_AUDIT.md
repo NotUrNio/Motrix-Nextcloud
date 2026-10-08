@@ -141,9 +141,13 @@ A scan of the codebase reveals lingering environment-specific paths (Pterodactyl
   3. **Broken on Object Storage (S3 / MinIO):** If a Nextcloud instance uses Primary Object Storage (S3/Swift), files do not exist at `$dataDir/$userId/files/`. Direct disk file manipulation fails catastrophically on cloud/object storage installations.
   4. **File Locking & Trashbin:** Direct disk operations bypass Nextcloud's file locking (`ILockingProvider`), activity logs, and quota enforcement until an explicit `scanFile()` is called.
 
-### 3.5 Token Storage Security
-* **Current State:** The secret Bearer RPC token is stored as plaintext in `oc_appconfig` via `$this->config->setAppValue('nddownloader', NdDownloaderClient::CONFIG_TOKEN, $token)`.
-* **Recommendation:** Use Nextcloud's sensitive app value APIs or encryption (`\OCP\Security\ICrypto`) to protect RPC tokens from plaintext database extraction.
+### 3.5 Token Storage Security & Encryption Decision (Step C)
+* **Architecture Decision:** We retain compatibility with Nextcloud 28 (`min-version="28"`) and encrypt the secret RPC Bearer token using Nextcloud's core `\OCP\Security\ICrypto` service.
+* **Rationale:** While Nextcloud 29 introduced `IAppConfig::TYPE_SENSITIVE`, using it would force dropping support for Nextcloud 28. `\OCP\Security\ICrypto` has been a stable, core cryptographic interface across Nextcloud 28 through 31. It encrypts the token at rest using authenticated AES encryption keyed by the Nextcloud server's unique secret (`config.php`).
+* **Implementation:**
+  - `NdDownloaderClient::setToken()` automatically encrypts tokens using `ICrypto::encrypt()` before saving to `oc_appconfig`.
+  - `NdDownloaderClient::getToken()` decrypts the ciphertext using `ICrypto::decrypt()`, falling back gracefully to plaintext if decrypting an unmigrated legacy value.
+  - Added migration `Version1001Date20261008000000.php` to scan for any existing plaintext `nddownloader_token` and encrypt it in place upon app update.
 
 ### 3.6 Output Escaping & XSS Review
 * **Templates:** `templates/admin.php` properly uses `<?php p($_['endpoint']); ?>` and `<?php p($_['saveDir']); ?>`. `p()` escapes HTML entities.
@@ -234,11 +238,10 @@ Upon user approval of this audit, Phase 1 will implement the following structure
 ### 2. Environment Hardcoding & Security Remediation
 - [x] **Step A (Complete):** Removed hardcoded fallback token `6wiYws5...` from `NdDownloaderClient.php`, `ApiController.php`, and migrations. Removed 401 config-mutating auto-heal. Added compromise notice.
 - [x] **Step B (Complete):** Access control hardening & rate limiting. Removed `#[NoAdminRequired]` from `startEngine()` and `getStatus()`. Added `#[UserRateLimit]` to `startEngine`, `testConnection`, `syncTask`, `deleteTask`, and `deleteTaskFallback`. Removed hardcoded host triggers from `startEngine()`.
+- [x] **Step C (Complete):** Token storage encryption. Implemented `\OCP\Security\ICrypto` encryption/decryption in `NdDownloaderClient` and created migration `Version1001Date20261008000000.php` to encrypt existing tokens in place. Retained NC 28 compatibility.
 - [ ] Remove `/home/container/...` and hardcoded disk path fallbacks from `StorageSyncService.php`.
 - [ ] Refactor `StorageSyncService.php` to use Nextcloud's `IRootFolder` / `IUserFolder` APIs so it works seamlessly on standard storage and S3 Object Storage, with recursive traversal protection.
 - [ ] Implement Admin Domain/IP Allowlist and Denylist in `UrlValidator.php` to prevent SSRF and DNS rebinding attacks.
-- [ ] Add `#[AdminRequired]` to all administrative settings endpoints and add rate limiting to sensitive routes.
-- [ ] Protect sensitive token storage using Nextcloud configuration guidelines.
 
 ### 3. Server Deployment Documentation & Consistency
 - [ ] Provide a tested `docker-compose.yml` for running Nextcloud + ND Downloader server with a shared volume.

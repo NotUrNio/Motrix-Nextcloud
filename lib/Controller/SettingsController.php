@@ -17,18 +17,21 @@ class SettingsController extends Controller {
     private IConfig $config;
     private IUserSession $userSession;
     private IGroupManager $groupManager;
+    private NdDownloaderClient $ndClient;
 
     public function __construct(
         string $appName,
         IRequest $request,
         IConfig $config,
         IUserSession $userSession,
-        IGroupManager $groupManager
+        IGroupManager $groupManager,
+        NdDownloaderClient $ndClient
     ) {
         parent::__construct($appName, $request);
         $this->config = $config;
         $this->userSession = $userSession;
         $this->groupManager = $groupManager;
+        $this->ndClient = $ndClient;
     }
 
     /**
@@ -50,7 +53,7 @@ class SettingsController extends Controller {
         }
 
         if ($token !== null && trim($token) !== '') {
-            $this->config->setAppValue('nddownloader', NdDownloaderClient::CONFIG_TOKEN, trim($token));
+            $this->ndClient->setToken(trim($token));
         }
 
         if ($saveDir !== null && trim($saveDir) !== '') {
