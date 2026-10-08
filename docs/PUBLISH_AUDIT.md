@@ -132,6 +132,24 @@ A scan of the codebase reveals lingering environment-specific paths (Pterodactyl
   3. **Broken on Object Storage (S3 / MinIO):** If a Nextcloud instance uses Primary Object Storage (S3/Swift), files do not exist at `$dataDir/$userId/files/`. Direct disk file manipulation fails catastrophically on cloud/object storage installations.
   4. **File Locking & Trashbin:** Direct disk operations bypass Nextcloud's file locking (`ILockingProvider`), activity logs, and quota enforcement until an explicit `scanFile()` is called.
 
+* **Storage Handoff & Primary Object Storage (S3 / MinIO) Architectural Design (Step G):**
+  1. **Decoupling from Host Disk & `datadirectory`:**
+     - The concept of reading or writing directly to `$dataDir/$userId/files/` is completely eliminated.
+     - All user destination operations pass exclusively through Nextcloud's Virtual Filesystem APIs: `\OCP\Files\IRootFolder::getUserFolder($userId)`.
+  2. **Stream-Based Ingestion (`setContent`):**
+     - Rather than using host `rename()` or `copy()` to raw disk targets (which fails on S3/MinIO where no local user files directory exists), `StorageSyncService` opens a binary read stream on the completed download file in the shared download volume (`fopen($resolvedPath, 'rb')`) and streams it into Nextcloud using `$destFolder->newFile($fileName)->setContent($stream)`.
+     - Nextcloud's VFS handles the backend persistence transparently — whether the target is local storage, Amazon S3, MinIO, Ceph, or external storage.
+     - Nextcloud automatically handles quota checking, encryption (if server-side encryption is enabled), chunking, activity logs, and filecache database indexing.
+  3. **Staging Cleanup:**
+     - Once the stream is successfully committed to the Nextcloud VFS node, the temporary downloaded file in the staging volume is safely unlinked (`@unlink($resolvedPath)`) to prevent duplicate storage consumption.
+     - For multi-file directory downloads, directories are traversed recursively, subfolders created via `$destFolder->newFolder()`, files streamed via `setContent($stream)`, and staging files/directories cleaned up once ingested.
+  4. **Strict Path Segment Sanitization & Boundary Containment:**
+     - Replaces simplistic `str_replace('..', '')` with strict path segment tokenization: each segment is stripped of whitespace, checked for traversal tokens (`..`), null bytes (`\0`), and illegal characters.
+     - The target folder node is resolved strictly from `$userFolder`. Target boundary containment is enforced by verifying that the resolved folder's node ID resides within the user's root node hierarchy.
+  5. **Collision-Safe File Naming:**
+     - Filenames are sanitized via `basename()`, stripped of path separators and control characters.
+     - Name collisions are resolved natively through `$destFolder->nodeExists($candidateName)` using progressive numbering (`filename (1).ext`, `filename (2).ext`).
+
 ### 3.5 Token Storage Security & Encryption Decision (Step C)
 * **Architecture Decision:** We retain compatibility with Nextcloud 28 (`min-version="28"`) and encrypt the secret RPC Bearer token using Nextcloud's core `\OCP\Security\ICrypto` service.
 * **Rationale:** While Nextcloud 29 introduced `IAppConfig::TYPE_SENSITIVE`, using it would force dropping support for Nextcloud 28. `\OCP\Security\ICrypto` has been a stable, core cryptographic interface across Nextcloud 28 through 31. It encrypts the token at rest using authenticated AES encryption keyed by the Nextcloud server's unique secret (`config.php`).
@@ -234,9 +252,8 @@ Upon user approval of this audit, Phase 1 will implement the following structure
 - [x] **Step A (Complete):** Removed hardcoded fallback token `6wiYws5...` from `NdDownloaderClient.php`, `ApiController.php`, and migrations. Removed 401 config-mutating auto-heal. Added compromise notice.
 - [x] **Step B (Complete):** Access control hardening & rate limiting. Removed `#[NoAdminRequired]` from `startEngine()` and `getStatus()`. Added `#[UserRateLimit]` to `startEngine`, `testConnection`, `syncTask`, `deleteTask`, and `deleteTaskFallback`. Removed hardcoded host triggers from `startEngine()`.
 - [x] **Step C (Complete):** Token storage encryption. Implemented `\OCP\Security\ICrypto` encryption/decryption in `NdDownloaderClient` and created migration `Version1001Date20261008000000.php` to encrypt existing tokens in place. Retained NC 28 compatibility.
-- [x] **Step D (Complete):** Remove Motrix & Pterodactyl leftovers. Purged `motrix_*` config fallbacks, `http://motrix-server:16801` probe, `/apps/motrix` frontend route, and `/home/container/` touch commands. Documented `/mdxp` backend protocol in README and settings.
-- [ ] Refactor `StorageSyncService.php` to use Nextcloud's `IRootFolder` / `IUserFolder` APIs so it works seamlessly on standard storage and S3 Object Storage, with recursive traversal protection.
-- [ ] Implement Admin Domain/IP Allowlist and Denylist in `UrlValidator.php` to prevent SSRF and DNS rebinding attacks.
+- [x] **Step G (Complete):** Refactored `StorageSyncService.php` to use Nextcloud's `IRootFolder` / `IUserFolder` APIs exclusively. Replaced disk-level `rename()` and `copy()` with stream-based `setContent()`, supporting S3 / MinIO primary object storage and external storages. Replaced simplistic path cleaning with strict segment validation and boundary containment. Completely removed `datadirectory` and host path assumptions.
+- [ ] **Step H:** Implement Admin Domain/IP Allowlist and Denylist in `UrlValidator.php` to prevent SSRF and DNS rebinding attacks.
 
 ### 3. Server Deployment Documentation & Consistency
 - [ ] Provide a tested `docker-compose.yml` for running Nextcloud + ND Downloader server with a shared volume.

@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace OCA\NdDownloader\Service;
 
+use InvalidArgumentException;
+use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
 use OCP\IConfig;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 
 class StorageSyncService {
     private IRootFolder $rootFolder;
@@ -27,36 +30,70 @@ class StorageSyncService {
     }
 
     /**
-     * Maps ND Downloader container download paths to candidate Nextcloud data paths.
+     * Sanitizes a user-supplied target folder path to prevent path traversal.
+     * Enforces strict segment tokenization and rejects '..' or null bytes.
      */
-    public function mapPath(string $path): string {
-        $dataDir = rtrim((string)$this->config->getSystemValue('datadirectory', '/home/container/nextcloud/data'), '/');
-        $baseNdSaveDir = rtrim((string)$this->config->getAppValue('nddownloader', 'nddownloader_save_dir', ''), '/');
-        if (empty($baseNdSaveDir)) {
-            $baseNdSaveDir = rtrim((string)$this->config->getAppValue('nddownloader', 'motrix_save_dir', (string)$this->config->getAppValue('motrix', 'motrix_save_dir', '/downloads')), '/');
-        }
-        if (empty($baseNdSaveDir)) {
-            $baseNdSaveDir = '/downloads';
+    public function sanitizeTargetFolder(?string $targetFolder): string {
+        if ($targetFolder === null || trim($targetFolder) === '') {
+            return 'Downloads';
         }
 
+        if (str_contains($targetFolder, "\0")) {
+            throw new InvalidArgumentException('Invalid path: null byte detected');
+        }
+
+        $normalized = str_replace('\\', '/', $targetFolder);
+        $segments = explode('/', trim($normalized, '/'));
+        $cleanSegments = [];
+
+        foreach ($segments as $segment) {
+            $segment = trim($segment);
+            if ($segment === '' || $segment === '.') {
+                continue;
+            }
+            if ($segment === '..' || str_contains($segment, "\0")) {
+                throw new InvalidArgumentException('Invalid path: path traversal detected');
+            }
+            if (preg_match('/[\/\\\\\x00-\x1F\x7F]/', $segment)) {
+                throw new InvalidArgumentException('Invalid characters in target path segment');
+            }
+            $cleanSegments[] = $segment;
+        }
+
+        return !empty($cleanSegments) ? implode('/', $cleanSegments) : 'Downloads';
+    }
+
+    /**
+     * Sanitizes a base filename, removing control characters and path delimiters.
+     */
+    public function sanitizeFileName(string $filename): string {
+        $clean = basename(str_replace('\\', '/', $filename));
+        $clean = preg_replace('/[\/\\\\\x00-\x1F\x7F]/', '', $clean);
+        $clean = trim((string)$clean);
+        if ($clean === '' || $clean === '.' || $clean === '..') {
+            return 'download_' . time();
+        }
+        return $clean;
+    }
+
+    /**
+     * Maps ND Downloader container download paths to local mount points if needed.
+     */
+    public function mapPath(string $path): string {
         if (file_exists($path)) {
             return $path;
         }
 
+        $baseNdSaveDir = rtrim((string)$this->config->getAppValue('nddownloader', 'nddownloader_save_dir', '/downloads'), '/');
+        if ($baseNdSaveDir === '') {
+            $baseNdSaveDir = '/downloads';
+        }
+
         if (str_starts_with($path, $baseNdSaveDir)) {
             $rel = substr($path, strlen($baseNdSaveDir));
-            return $dataDir . '/' . ltrim($rel, '/');
-        }
-
-        if (str_starts_with($path, '/downloads')) {
-            $rel = substr($path, strlen('/downloads'));
-            return $dataDir . '/' . ltrim($rel, '/');
-        }
-
-        foreach (['/var/www/html/data', '/home/container/nextcloud/data'] as $altData) {
-            if (str_starts_with($path, $altData)) {
-                $rel = substr($path, strlen($altData));
-                return $dataDir . '/' . ltrim($rel, '/');
+            $fallback = '/downloads/' . ltrim($rel, '/');
+            if (file_exists($fallback)) {
+                return $fallback;
             }
         }
 
@@ -64,8 +101,8 @@ class StorageSyncService {
     }
 
     /**
-     * Translates paths reported by the ND Downloader container into real local paths in Nextcloud,
-     * verifying that the canonical realpath is within the download root or Nextcloud datadirectory.
+     * Translates paths reported by the ND Downloader container into canonical local paths,
+     * verifying that the canonical realpath is within the allowed download root mount.
      */
     public function resolveLocalPath(?string $path): ?string {
         if (empty($path)) {
@@ -82,21 +119,12 @@ class StorageSyncService {
             return null;
         }
 
-        $dataDir = rtrim((string)$this->config->getSystemValue('datadirectory', '/home/container/nextcloud/data'), '/');
-        $realDataDir = realpath($dataDir);
-
-        $baseNdSaveDir = rtrim((string)$this->config->getAppValue('nddownloader', 'nddownloader_save_dir', ''), '/');
-        if (empty($baseNdSaveDir)) {
-            $baseNdSaveDir = rtrim((string)$this->config->getAppValue('nddownloader', 'motrix_save_dir', (string)$this->config->getAppValue('motrix', 'motrix_save_dir', '/downloads')), '/');
-        }
-        if (empty($baseNdSaveDir)) {
+        $baseNdSaveDir = rtrim((string)$this->config->getAppValue('nddownloader', 'nddownloader_save_dir', '/downloads'), '/');
+        if ($baseNdSaveDir === '') {
             $baseNdSaveDir = '/downloads';
         }
 
         $allowedRoots = [];
-        if ($realDataDir !== false) {
-            $allowedRoots[] = $realDataDir;
-        }
         $realNdDir = realpath($baseNdSaveDir);
         if ($realNdDir !== false) {
             $allowedRoots[] = $realNdDir;
@@ -115,7 +143,7 @@ class StorageSyncService {
         }
 
         if (!$isInsideAllowed) {
-            $this->logger->warning('Rejected file outside ND Downloader download root or Nextcloud datadirectory: ' . $realPath, [
+            $this->logger->warning('Rejected file outside ND Downloader download root: ' . $realPath, [
                 'app' => 'nddownloader',
                 'path' => $path,
             ]);
@@ -126,11 +154,13 @@ class StorageSyncService {
     }
 
     /**
-     * Syncs a completed ND Downloader download into the user's Nextcloud storage.
+     * Syncs a completed ND Downloader download into the user's Nextcloud storage
+     * strictly through Nextcloud's Virtual Filesystem APIs (IRootFolder / IUserFolder).
+     * Works seamlessly across local disk, Amazon S3, MinIO, and external storage.
      *
-     * @param string $userId
-     * @param array $task Task dictionary
-     * @param string $targetSubfolder Relative subfolder in user storage (default 'Downloads')
+     * @param string $userId Nextcloud user UID
+     * @param array $task Task dictionary reported by ND Downloader
+     * @param string $targetSubfolder Relative subfolder in user storage (e.g. 'Downloads')
      * @return array Result information
      */
     public function syncCompletedTask(string $userId, array $task, string $targetSubfolder = ''): array {
@@ -159,12 +189,10 @@ class StorageSyncService {
             }
         }
 
-        $dataDir = rtrim((string)$this->config->getSystemValue('datadirectory', '/home/container/nextcloud/data'), '/');
-
         if ($resolvedPath === null || !file_exists($resolvedPath)) {
             $effectiveNdPath = (string)($ndPath ?: $taskName);
             $mappedPath = $this->mapPath($effectiveNdPath);
-            $message = "Completed file not found. ND Downloader path: {$effectiveNdPath}, mapped path: {$mappedPath}, datadirectory: {$dataDir}";
+            $message = "Completed file not found. ND Downloader path: {$effectiveNdPath}, mapped path: {$mappedPath}";
             $this->logger->warning($message, [
                 'app' => 'nddownloader',
                 'user' => $userId,
@@ -176,83 +204,61 @@ class StorageSyncService {
             ];
         }
 
-        $realUserDataDir = realpath($dataDir . '/' . $userId . '/files');
-
-        // Check if the file is inside the user's personal storage directory (direct zero-copy mode)
-        if ($realUserDataDir !== false && (str_starts_with($resolvedPath, $realUserDataDir . DIRECTORY_SEPARATOR) || $resolvedPath === $realUserDataDir)) {
-            $relInUser = trim(substr($resolvedPath, strlen($realUserDataDir)), DIRECTORY_SEPARATOR);
-            $dirInUser = trim(str_replace('\\', '/', dirname($relInUser)), '/.');
-            if ($dirInUser === '.') {
-                $dirInUser = '';
-            }
-            $fileName = basename($relInUser);
-
-            $scanResult = $this->scanPath($userId, $dirInUser);
-
-            $taskId = $task['id'] ?? $task['taskId'] ?? null;
-            if (!empty($taskId)) {
-                $this->taskOwnershipService->markTaskSynced((string)$taskId);
-            }
-
-            return [
-                'synced' => true,
-                'direct' => true,
-                'folder' => $dirInUser,
-                'destination' => ($dirInUser !== '' ? $dirInUser . '/' : '') . $fileName,
-                'fileName' => $fileName,
-                'scan' => $scanResult,
-            ];
-        }
-
-        $cleanTarget = trim(str_replace('\\', '/', $targetSubfolder), '/');
-        if (str_contains($cleanTarget, '..') || str_contains($cleanTarget, "\0")) {
-            $cleanTarget = 'Downloads';
-        }
-        if ($cleanTarget === '') {
-            $cleanTarget = 'Downloads';
-        }
-
         try {
             $userFolder = $this->rootFolder->getUserFolder($userId);
+            $cleanTarget = $this->sanitizeTargetFolder($targetSubfolder);
 
-            // Ensure destination folder exists
-            if ($cleanTarget !== '' && !$userFolder->nodeExists($cleanTarget)) {
-                $userFolder->newFolder($cleanTarget);
+            // Traverse and ensure target folders inside user virtual filesystem
+            $destFolder = $userFolder;
+            if ($cleanTarget !== '') {
+                $segments = explode('/', $cleanTarget);
+                foreach ($segments as $seg) {
+                    if (!$destFolder->nodeExists($seg)) {
+                        $destFolder = $destFolder->newFolder($seg);
+                    } else {
+                        $node = $destFolder->get($seg);
+                        if (!($node instanceof Folder)) {
+                            throw new RuntimeException("Target path component '{$seg}' is not a folder");
+                        }
+                        $destFolder = $node;
+                    }
+                }
             }
 
-            $destFolder = $cleanTarget !== '' ? $userFolder->get($cleanTarget) : $userFolder;
+            $fileName = $this->sanitizeFileName(basename($resolvedPath));
 
-            $destFolderDir = $dataDir . '/' . $userId . '/files' . ($cleanTarget !== '' ? '/' . $cleanTarget : '');
-            if (!is_dir($destFolderDir)) {
-                @mkdir($destFolderDir, 0770, true);
-            }
-
-            $fileName = basename($resolvedPath);
-
-            // Avoid collisions
+            // Collision-safe naming within the target virtual folder
             $destName = $fileName;
             $counter = 1;
-            while ($destFolder->nodeExists($destName) || file_exists($destFolderDir . '/' . $destName)) {
+            while ($destFolder->nodeExists($destName)) {
                 $info = pathinfo($fileName);
-                $ext = isset($info['extension']) ? '.' . $info['extension'] : '';
+                $ext = isset($info['extension']) && $info['extension'] !== '' ? '.' . $info['extension'] : '';
                 $destName = $info['filename'] . " ($counter)" . $ext;
                 $counter++;
             }
 
-            $destPath = $destFolderDir . '/' . $destName;
-
             if (is_file($resolvedPath)) {
                 set_time_limit(0);
-                if (!@rename($resolvedPath, $destPath)) {
-                    if (!@copy($resolvedPath, $destPath)) {
-                        throw new \RuntimeException("Failed to move or copy file to destination: {$destPath}");
-                    }
-                    @unlink($resolvedPath);
+                $stream = fopen($resolvedPath, 'rb');
+                if ($stream === false) {
+                    throw new RuntimeException("Failed to open source download for reading: {$resolvedPath}");
                 }
+                try {
+                    $destFile = $destFolder->newFile($destName);
+                    $destFile->setContent($stream);
+                } finally {
+                    if (is_resource($stream)) {
+                        fclose($stream);
+                    }
+                }
+                @unlink($resolvedPath);
             } elseif (is_dir($resolvedPath)) {
-                $this->copyDirectoryToNextcloud($resolvedPath, $destFolder->newFolder($destName));
+                $newFolder = $destFolder->newFolder($destName);
+                $this->copyDirectoryToNextcloud($resolvedPath, $newFolder);
+                $this->removeDirectory($resolvedPath);
             }
 
+            // Rescan folder via Nextcloud VFS scanner to ensure instant visibility
             $this->scanPath($userId, $cleanTarget);
 
             $taskId = $task['id'] ?? $task['taskId'] ?? null;
@@ -282,30 +288,76 @@ class StorageSyncService {
         }
     }
 
-    private function copyDirectoryToNextcloud(string $srcDir, \OCP\Files\Folder $destFolder): void {
-        $files = scandir($srcDir);
-        if ($files === false) {
+    /**
+     * Streams an entire directory into Nextcloud Virtual Filesystem.
+     */
+    private function copyDirectoryToNextcloud(string $srcDir, Folder $destFolder): void {
+        $items = scandir($srcDir);
+        if ($items === false) {
             return;
         }
 
-        foreach ($files as $file) {
-            if ($file === '.' || $file === '..') {
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') {
                 continue;
             }
 
-            $srcPath = $srcDir . '/' . $file;
-            if (is_dir($srcPath)) {
-                $newSub = $destFolder->newFolder($file);
-                $this->copyDirectoryToNextcloud($srcPath, $newSub);
-            } elseif (is_file($srcPath)) {
-                $newFile = $destFolder->newFile($file);
-                $stream = fopen($srcPath, 'rb');
+            $itemPath = $srcDir . DIRECTORY_SEPARATOR . $item;
+            $safeItemName = $this->sanitizeFileName($item);
+
+            if (is_dir($itemPath)) {
+                $subFolder = $destFolder->nodeExists($safeItemName)
+                    ? $destFolder->get($safeItemName)
+                    : $destFolder->newFolder($safeItemName);
+                if ($subFolder instanceof Folder) {
+                    $this->copyDirectoryToNextcloud($itemPath, $subFolder);
+                }
+            } elseif (is_file($itemPath)) {
+                $safeFileName = $safeItemName;
+                $counter = 1;
+                while ($destFolder->nodeExists($safeFileName)) {
+                    $info = pathinfo($safeItemName);
+                    $ext = isset($info['extension']) && $info['extension'] !== '' ? '.' . $info['extension'] : '';
+                    $safeFileName = $info['filename'] . " ($counter)" . $ext;
+                    $counter++;
+                }
+
+                $stream = fopen($itemPath, 'rb');
                 if ($stream !== false) {
-                    $newFile->setContent($stream);
-                    fclose($stream);
+                    try {
+                        $fileNode = $destFolder->newFile($safeFileName);
+                        $fileNode->setContent($stream);
+                    } finally {
+                        fclose($stream);
+                    }
                 }
             }
         }
+    }
+
+    /**
+     * Recursively deletes an unlinked staging directory.
+     */
+    private function removeDirectory(string $dir): void {
+        if (!is_dir($dir)) {
+            return;
+        }
+        $items = scandir($dir);
+        if ($items === false) {
+            return;
+        }
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+            $path = $dir . DIRECTORY_SEPARATOR . $item;
+            if (is_dir($path)) {
+                $this->removeDirectory($path);
+            } else {
+                @unlink($path);
+            }
+        }
+        @rmdir($dir);
     }
 
     /**
@@ -319,11 +371,6 @@ class StorageSyncService {
         try {
             $userFolder = $this->rootFolder->getUserFolder($userId);
             $cleanFolder = trim(str_replace('\\', '/', $targetFolder), '/');
-
-            if ($cleanFolder !== '' && !$userFolder->nodeExists($cleanFolder)) {
-                $storage = $userFolder->getStorage();
-                $storage->getScanner()->scan($userFolder->getInternalPath());
-            }
 
             if ($cleanFolder !== '' && $userFolder->nodeExists($cleanFolder)) {
                 $node = $userFolder->get($cleanFolder);
