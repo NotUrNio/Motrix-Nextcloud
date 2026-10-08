@@ -73,10 +73,9 @@ class Version1000Date20261006000000 extends SimpleMigrationStep {
             $token = $config->getAppValue('nddownloader', 'nddownloader_token', '');
             if (empty($token)) {
                 $token = $config->getAppValue('nddownloader', 'motrix_token', (string)$config->getAppValue('motrix', 'motrix_token', ''));
-                if (empty($token)) {
-                    $token = '6wiYws5ONfV1fg3DAwP1tXiFlOmIc1QWW8RuLKY0tbE';
+                if (!empty($token)) {
+                    $config->setAppValue('nddownloader', 'nddownloader_token', $token);
                 }
-                $config->setAppValue('nddownloader', 'nddownloader_token', $token);
             }
 
             $endpoint = $config->getAppValue('nddownloader', 'nddownloader_endpoint', '');

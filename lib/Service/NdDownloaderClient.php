@@ -13,7 +13,6 @@ class NdDownloaderClient {
     public const CONFIG_ENDPOINT = 'nddownloader_endpoint';
     public const CONFIG_TOKEN = 'nddownloader_token';
     public const CONFIG_DEFAULT_SAVE_DIR = 'nddownloader_save_dir';
-    public const DEFAULT_TOKEN = '6wiYws5ONfV1fg3DAwP1tXiFlOmIc1QWW8RuLKY0tbE';
 
     private IConfig $config;
     private IClientService $clientService;
@@ -54,44 +53,7 @@ class NdDownloaderClient {
         if (empty($token)) {
             $token = (string)$this->config->getAppValue('nddownloader', 'token', '');
         }
-        if (empty($token)) {
-            $token = (string)$this->config->getAppValue('nddownloader', 'motrix_token', (string)$this->config->getAppValue('motrix', 'motrix_token', ''));
-        }
-        if (!empty($token)) {
-            return $token;
-        }
-
-        $candidates = [
-            '/downloads/bridge/endpoint.json',
-            '/downloads/bridge/pairing.json',
-            '/home/container/nextcloud/data/bridge/endpoint.json',
-            '/home/container/nextcloud/data/bridge/pairing.json',
-            '/home/container/nddownloader/bridge/endpoint.json',
-            '/home/container/nddownloader/bridge/pairing.json',
-            '/home/container/nd/bridge/endpoint.json',
-            '/home/container/nd/bridge/pairing.json',
-            '/home/container/motrix/bridge/endpoint.json',
-            '/data/bridge/endpoint.json',
-            '/data/bridge/pairing.json',
-        ];
-        foreach ($candidates as $candidate) {
-            if (file_exists($candidate)) {
-                $content = @file_get_contents($candidate);
-                if ($content !== false) {
-                    $json = json_decode($content, true);
-                    if (is_array($json)) {
-                        if (!empty($json['localToken'])) {
-                            return (string)$json['localToken'];
-                        }
-                        if (isset($json[0]['token']) && !empty($json[0]['token'])) {
-                            return (string)$json[0]['token'];
-                        }
-                    }
-                }
-            }
-        }
-
-        return self::DEFAULT_TOKEN;
+        return $token;
     }
 
     public function getDefaultSaveDir(): string {
@@ -155,31 +117,8 @@ class NdDownloaderClient {
             $msg = $e->getMessage();
             $lower = strtolower($msg);
 
-            // Auto-heal on 401 Unauthorized: retry with permanent fallback pairing token
-            if (
-                (str_contains($lower, '401') || str_contains($lower, 'unauthorized'))
-                && $token !== self::DEFAULT_TOKEN
-            ) {
-                $this->logger->warning('ND Downloader 401 Unauthorized encountered. Retrying with persistent token fallback...');
-                try {
-                    $retryHeaders = $headers;
-                    $retryHeaders['Authorization'] = 'Bearer ' . self::DEFAULT_TOKEN;
-                    $retryClient = $this->clientService->newClient();
-                    $retryResponse = $retryClient->post($endpoint, [
-                        'headers' => $retryHeaders,
-                        'body' => json_encode($payload, JSON_THROW_ON_ERROR),
-                        'timeout' => 15,
-                        'connect_timeout' => 5,
-                    ]);
-                    if ($retryResponse->getStatusCode() >= 200 && $retryResponse->getStatusCode() < 300) {
-                        $retryBody = $retryResponse->getBody();
-                        $data = json_decode($retryBody, true, 512, JSON_THROW_ON_ERROR);
-                        // Self-heal: persist the working token into app config so future requests don't fail
-                        $this->config->setAppValue('nddownloader', self::CONFIG_TOKEN, self::DEFAULT_TOKEN);
-                    }
-                } catch (\Throwable $retryErr) {
-                    // Retry failed, fall through to regular error formatting
-                }
+            if (str_contains($lower, '401') || str_contains($lower, 'unauthorized')) {
+                throw new RuntimeException('ND Downloader authentication failed: 401 Unauthorized. The configured RPC Bearer token is invalid or missing.', 0, $e);
             }
 
             if ($data === null) {

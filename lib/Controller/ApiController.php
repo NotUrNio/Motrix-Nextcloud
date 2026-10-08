@@ -517,12 +517,6 @@ class ApiController extends Controller {
                 $this->config->setAppValue('nddownloader', 'motrix_endpoint', 'http://nd-server:16801');
             }
 
-            // Ensure known pairing token is stored if missing
-            $token = $this->ndClient->getToken();
-            if (empty($token)) {
-                $this->config->setAppValue('nddownloader', NdDownloaderClient::CONFIG_TOKEN, NdDownloaderClient::DEFAULT_TOKEN);
-            }
-
             // Test connection
             $res = $this->ndClient->testConnection();
             if (!empty($res['success'])) {

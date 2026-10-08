@@ -45,16 +45,13 @@ Nextcloud enforces an XML schema validation check ([`info.xsd`](https://apps.nex
 A scan of the codebase reveals lingering environment-specific paths (Pterodactyl container paths, developer file paths), legacy "motrix" strings, and hardcoded tokens:
 
 ### 2.1 Hardcoded Tokens & Credentials
-* **`lib/Service/NdDownloaderClient.php` (Line 16):**
-  ```php
-  public const DEFAULT_TOKEN = '6wiYws5ONfV1fg3DAwP1tXiFlOmIc1QWW8RuLKY0tbE';
-  ```
-  A private secret token is embedded directly in the source code as a fallback. If a request returns 401, it attempts to overwrite the configuration with this token (line 166, 178).
-* **`lib/Migration/Version1000Date20261006000000.php` (Line 77):**
-  ```php
-  $token = '6wiYws5ONfV1fg3DAwP1tXiFlOmIc1QWW8RuLKY0tbE';
-  ```
-  Hardcoded into initial database migration.
+* **`lib/Service/NdDownloaderClient.php`:**
+  Previously contained a fallback secret token constant `DEFAULT_TOKEN = '6wiYws5ONfV1fg3DAwP1tXiFlOmIc1QWW8RuLKY0tbE'` and automatically rewrote app config on 401.
+* **`lib/Migration/Version1000Date20261006000000.php`:**
+  Previously seeded `6wiYws5...` if no token existed.
+
+> [!WARNING]
+> **Token Compromise Notice:** The previously hardcoded fallback token (`6wiYws5...`) has been completely removed from the code, migrations, and runtime auto-heal routines. Because this repository has historical commits, this token must be treated as compromised. The server administrator must generate and rotate to a new secret RPC Bearer token in the download daemon and update it in Nextcloud Admin Settings. If no token is configured, the app cleanly reports "not configured" / empty and never mutates configuration or uses fallback secrets.
 
 ### 2.2 Host / Pterodactyl Environment Hardcodings
 * **`lib/Controller/ApiController.php` (Lines 510–511):**
@@ -237,8 +234,8 @@ Upon user approval of this audit, Phase 1 will implement the following structure
 - [ ] Capture/generate 2–3 UI screenshots and store in `docs/screenshots/`.
 
 ### 2. Environment Hardcoding & Security Remediation
-- [ ] Remove hardcoded fallback token `6wiYws5...` from `NdDownloaderClient.php` and migrations.
-- [ ] Restrict `startEngine()` in `ApiController.php` to `#[AdminRequired]` (prevent privilege escalation).
+- [x] **Step A (Complete):** Removed hardcoded fallback token `6wiYws5...` from `NdDownloaderClient.php`, `ApiController.php`, and migrations. Removed 401 config-mutating auto-heal. Added compromise notice.
+- [ ] Restrict `startEngine()` in `ApiController.php` to admin-only (prevent privilege escalation).
 - [ ] Make Pterodactyl trigger path `/home/container/nd_start_trigger` optional and configurable via Admin Settings (disabled by default, with host path validation).
 - [ ] Remove `/home/container/...` and hardcoded disk path fallbacks from `StorageSyncService.php`.
 - [ ] Refactor `StorageSyncService.php` to use Nextcloud's `IRootFolder` / `IUserFolder` APIs so it works seamlessly on standard storage and S3 Object Storage, with recursive traversal protection.
