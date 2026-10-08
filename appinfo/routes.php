@@ -21,6 +21,7 @@ return [
         ['name' => 'api#get_settings', 'url' => '/api/settings', 'verb' => 'GET'],
         ['name' => 'api#save_settings', 'url' => '/api/settings', 'verb' => 'POST'],
         ['name' => 'api#test_connection', 'url' => '/api/settings/test', 'verb' => 'POST'],
+        ['name' => 'api#start_engine', 'url' => '/api/engine/start', 'verb' => 'POST'],
 
         // Admin Settings
         ['name' => 'settings#save', 'url' => '/settings', 'verb' => 'POST'],

@@ -497,4 +497,72 @@ class ApiController extends Controller {
         $res = $this->ndClient->testConnection();
         return new DataResponse($res);
     }
+
+    #[NoAdminRequired]
+    public function startEngine(): DataResponse {
+        $user = $this->userSession->getUser();
+        if (!$user) {
+            return new DataResponse(['success' => false, 'error' => 'User not logged in'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        try {
+            // Signal host watchdog trigger to ensure motrix-server container is running
+            $triggerFile = '/home/container/motrix_start_trigger';
+            @touch($triggerFile);
+
+            // Ensure endpoint configuration is valid
+            $endpoint = $this->ndClient->getEndpoint();
+            if (empty($endpoint) || str_contains($endpoint, '127.0.0.1')) {
+                $this->config->setAppValue('nddownloader', NdDownloaderClient::CONFIG_ENDPOINT, 'http://motrix-server:16801');
+            }
+
+            // Ensure known pairing token is stored if missing
+            $token = $this->ndClient->getToken();
+            if (empty($token)) {
+                $this->config->setAppValue('nddownloader', NdDownloaderClient::CONFIG_TOKEN, NdDownloaderClient::DEFAULT_PAIRING_TOKEN);
+            }
+
+            // Test connection
+            $res = $this->ndClient->testConnection();
+            if (!empty($res['success'])) {
+                $version = $res['engine']['featureReport']['version'] ?? 'ready';
+                $state = $res['engine']['state'] ?? 'ready';
+                return new DataResponse([
+                    'success' => true,
+                    'message' => "Motrix engine is running and ready (Aria2 {$version})",
+                    'version' => $version,
+                    'state' => $state,
+                    'engine' => $res['engine'] ?? null,
+                    'stats' => $res['stats'] ?? null,
+                ]);
+            }
+
+            // If container was starting up, wait briefly and retry
+            sleep(2);
+            $retryRes = $this->ndClient->testConnection();
+            if (!empty($retryRes['success'])) {
+                $version = $retryRes['engine']['featureReport']['version'] ?? 'ready';
+                $state = $retryRes['engine']['state'] ?? 'ready';
+                return new DataResponse([
+                    'success' => true,
+                    'message' => "Motrix engine started successfully (Aria2 {$version})",
+                    'version' => $version,
+                    'state' => $state,
+                    'engine' => $retryRes['engine'] ?? null,
+                    'stats' => $retryRes['stats'] ?? null,
+                ]);
+            }
+
+            return new DataResponse([
+                'success' => false,
+                'error' => $retryRes['error'] ?? 'Motrix engine could not be reached',
+            ], Http::STATUS_SERVICE_UNAVAILABLE);
+        } catch (\Throwable $e) {
+            return new DataResponse([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }
+    }
 }
+

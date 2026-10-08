@@ -52,7 +52,8 @@
     };
 
     const getApiUrl = (endpoint) => {
-        return OC.generateUrl ? OC.generateUrl(`/apps/nddownloader${endpoint}`) : `/apps/nddownloader${endpoint}`;
+        const appPrefix = window.location.pathname.includes('/apps/motrix') ? '/apps/motrix' : '/apps/nddownloader';
+        return OC.generateUrl ? OC.generateUrl(`${appPrefix}${endpoint}`) : `${appPrefix}${endpoint}`;
     };
 
     const showNotification = (msg, type = 'info') => {
@@ -124,11 +125,14 @@
                 renderTasks();
                 updateCounts();
                 hideError();
+                updateEngineStatus('ready', 'Ready');
             } else {
                 showError(data.error || 'Failed to fetch tasks');
+                updateEngineStatus('offline', 'Offline');
             }
         } catch (err) {
             showError('Could not reach ND Downloader bridge: ' + err.message);
+            updateEngineStatus('offline', 'Offline');
         }
     };
 
@@ -141,9 +145,11 @@
             if (data.success && data.stats) {
                 document.getElementById('speed-download').textContent = formatSpeed(data.stats.totalDownloadSpeed || 0);
                 document.getElementById('speed-upload').textContent = formatSpeed(data.stats.totalUploadSpeed || 0);
+                updateEngineStatus('ready', 'Ready');
             }
         } catch (_) {}
     };
+
 
     const renderTasks = () => {
         const container = document.getElementById('nddownloader-task-list');
@@ -287,8 +293,77 @@
         document.getElementById('nddownloader-error').classList.add('hidden');
     };
 
+    const updateEngineStatus = (status, label) => {
+        const dot = document.getElementById('engine-dot');
+        const text = document.getElementById('engine-status-label');
+        if (!dot || !text) return;
+
+        dot.className = 'engine-dot';
+        if (status === 'ready') {
+            dot.classList.add('engine-dot-ready');
+            text.textContent = label ? `Engine: ${label}` : 'Engine: Ready';
+        } else if (status === 'starting') {
+            dot.classList.add('engine-dot-starting');
+            text.textContent = 'Engine: Starting...';
+        } else if (status === 'offline') {
+            dot.classList.add('engine-dot-offline');
+            text.textContent = label ? `Engine: ${label}` : 'Engine: Offline';
+        } else {
+            dot.classList.add('engine-dot-unknown');
+            text.textContent = label || 'Engine: Unknown';
+        }
+    };
+
+    const startMotrixEngine = async () => {
+        const btns = [
+            document.getElementById('btn-start-engine'),
+            document.getElementById('btn-banner-start-engine'),
+            document.getElementById('btn-start-engine-settings')
+        ].filter(Boolean);
+
+        btns.forEach(b => {
+            b.disabled = true;
+            b.dataset.origText = b.textContent;
+            b.textContent = 'Starting Engine...';
+        });
+
+        updateEngineStatus('starting');
+
+        try {
+            const res = await fetch(getApiUrl('/api/engine/start'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'requesttoken': getRequestToken()
+                }
+            });
+            const data = await safeParseJson(res);
+            if (data.success) {
+                showNotification(data.message || 'Motrix engine is active and ready!', 'success');
+                hideError();
+                updateEngineStatus('ready', 'Ready');
+                fetchTasks();
+                fetchStats();
+            } else {
+                showNotification(data.error || 'Failed to start Motrix engine', 'error');
+                showError('Motrix engine could not be started: ' + (data.error || 'Unreachable'));
+                updateEngineStatus('offline', 'Offline');
+            }
+        } catch (err) {
+            showNotification('Request failed: ' + err.message, 'error');
+            showError('Could not communicate with server: ' + err.message);
+            updateEngineStatus('offline', 'Offline');
+        } finally {
+            btns.forEach(b => {
+                b.disabled = false;
+                if (b.dataset.origText) b.textContent = b.dataset.origText;
+            });
+        }
+    };
+
     // Public actions exposed on window.ndDownloaderApp
     window.ndDownloaderApp = {
+        startEngine: startMotrixEngine,
         pauseTask: async (taskId) => {
             await fetch(getApiUrl(`/api/tasks/${taskId}/pause`), {
                 method: 'POST',
@@ -429,6 +504,22 @@
             fetchTasks();
             fetchStats();
         });
+
+        const startEngineBtn = document.getElementById('btn-start-engine');
+        if (startEngineBtn) {
+            startEngineBtn.addEventListener('click', startMotrixEngine);
+        }
+
+        const bannerStartBtn = document.getElementById('btn-banner-start-engine');
+        if (bannerStartBtn) {
+            bannerStartBtn.addEventListener('click', startMotrixEngine);
+        }
+
+        const settingsStartBtn = document.getElementById('btn-start-engine-settings');
+        if (settingsStartBtn) {
+            settingsStartBtn.addEventListener('click', startMotrixEngine);
+        }
+
 
         // Add Task Modal
         const addModal = document.getElementById('modal-add-task');

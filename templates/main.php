@@ -48,9 +48,16 @@
                 <button id="btn-refresh" class="button" title="Refresh list">
                     Refresh
                 </button>
+                <button id="btn-start-engine" class="button" title="Start or check Motrix Engine">
+                    ▶ Start Motrix Engine
+                </button>
             </div>
 
             <div class="toolbar-right">
+                <div id="engine-status-indicator" class="engine-indicator" title="Motrix Engine Status">
+                    <span id="engine-dot" class="engine-dot engine-dot-unknown"></span>
+                    <span id="engine-status-label">Engine: Checking...</span>
+                </div>
                 <div class="speed-indicator">
                     <span class="speed-item speed-down" title="Download speed">
                         ⬇ <span id="speed-download">0 B/s</span>
@@ -70,6 +77,9 @@
 
             <div id="nddownloader-error" class="nd-downloader-banner nd-downloader-banner-error hidden">
                 <span id="nddownloader-error-text"></span>
+                <button id="btn-banner-start-engine" class="button primary banner-action-btn">
+                    Start Motrix Engine
+                </button>
             </div>
 
             <div id="nddownloader-empty" class="nd-downloader-empty hidden">
@@ -152,6 +162,7 @@
                 <div id="test-connection-result" class="nd-downloader-test-result hidden"></div>
             </div>
             <div class="modal-footer">
+                <button class="button" id="btn-start-engine-settings">Start Motrix Engine</button>
                 <button class="button" id="btn-test-connection">Test Connection</button>
                 <button class="button" id="btn-cancel-settings">Cancel</button>
                 <button class="button primary" id="btn-save-settings">Save Settings</button>
