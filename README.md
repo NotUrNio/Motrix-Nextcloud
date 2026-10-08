@@ -1,23 +1,18 @@
 # ND Downloader for Nextcloud
 
-A Nextcloud app that sends downloads (HTTP/HTTPS, FTP, magnet links, torrents) to an Aria2 RPC server and saves the finished files straight into Nextcloud storage.
+A Nextcloud app that sends downloads (HTTP/HTTPS, FTP, magnet links, torrents) to an external ND / Motrix download server and automatically saves finished downloads into Nextcloud storage.
 
 *Compatibility note: works with ND/aria2.*
 
-## Overview
+## Backend Architecture & Protocol
 
-ND Downloader integrates download management directly into Nextcloud: paste a link or drop a torrent in Nextcloud, the download server downloads it, and the file shows up in your Files.
+ND Downloader communicates with a dedicated **ND / Motrix download server** via its **`/mdxp` JSON-RPC 2.0** endpoint:
+- `POST /mdxp` — JSON-RPC 2.0 protocol managing tasks (`download/add`, `task/list`, `task/get`, `task/pause`, `task/resume`, `task/remove`, `stats/get`, `engine/status`).
+- *Note:* This backend protocol is based on the Motrix download daemon specification (`/mdxp`), rather than raw standalone `aria2c` RPC. The backend runs as a container alongside Nextcloud.
 
 ```
-Nextcloud (ND Downloader) --JSON-RPC--> Download Server (Docker) --writes--> shared folder --> Nextcloud Files
+Nextcloud (ND Downloader) --JSON-RPC (/mdxp)--> ND Server Container --downloads--> Nextcloud Storage
 ```
-
-## How it talks to the server
-
-The server exposes JSON-RPC 2.0 endpoints:
-
-- `POST /mdxp` — JSON-RPC 2.0 calls (add task, list, pause, resume, remove, stats)
-- `/api/*` — REST endpoints for the Nextcloud UI
 
 ## Features
 

@@ -80,23 +80,14 @@ A scan of the codebase reveals lingering environment-specific paths (Pterodactyl
 * **`README.md` (Lines 32–33):**
   Mentions "Nextcloud running on Docker / Pterodactyl container". Needs standard Docker / Docker Compose instructions.
 
-### 2.3 Leftover "Motrix" References in Code
-* **`js/app.js` (Line 55):**
-  ```javascript
-  const appPrefix = window.location.pathname.includes('/apps/motrix') ? '/apps/motrix' : '/apps/nddownloader';
-  ```
-* **`lib/Service/NdDownloaderClient.php` (Lines 41, 43, 58, 73, 106):**
-  Reads `motrix_endpoint`, `motrix_token`, `motrix_save_dir`, and checks `http://motrix-server:16801`.
-* **`lib/Controller/ApiController.php` (Lines 511, 515, 517):**
-  Touches `motrix_start_trigger`, checks `http://motrix-server:16801`, sets `motrix_endpoint`.
-* **`lib/Service/StorageSyncService.php` (Lines 36, 90):**
-  Reads `motrix_save_dir`.
-* **`lib/Service/UrlValidator.php` (Line 78):**
-  Reads `motrix` app configuration for `allow_private_network`.
-* **`lib/Settings/AdminSettings.php` (Lines 24, 25, 27, 33, 37):**
-  Fallbacks reading from `motrix` app config.
-* **`lib/Migration/Version1000Date20261006000000.php` (Lines 65, 68, 75, 83–85, 93):**
-  Migrates legacy `*PREFIX*motrix_tasks` and config keys. (Note: Retaining migration logic for upgrade paths is acceptable, but default fallbacks must not point to `motrix-server`).
+### 2.3 Legacy & Environment Cleanup (Step D)
+* **Resolved in Step D:**
+  - Removed `/apps/motrix` URL fallback in `js/app.js`.
+  - Removed `motrix_endpoint`, `motrix_token`, and `motrix_save_dir` fallbacks across `NdDownloaderClient.php`, `AdminSettings.php`, and `Version1000Date20261006000000.php`.
+  - Removed `http://motrix-server:16801` hardcoded endpoint probes.
+  - Removed `motrix` app config check in `UrlValidator.php`.
+  - Removed hardcoded `@touch('/home/container/...')` calls from `ApiController.php`.
+  - Updated admin settings labels and README to accurately document the backend: **ND / Motrix download server exposing `/mdxp` JSON-RPC 2.0**.
 
 ---
 
@@ -239,7 +230,7 @@ Upon user approval of this audit, Phase 1 will implement the following structure
 - [x] **Step A (Complete):** Removed hardcoded fallback token `6wiYws5...` from `NdDownloaderClient.php`, `ApiController.php`, and migrations. Removed 401 config-mutating auto-heal. Added compromise notice.
 - [x] **Step B (Complete):** Access control hardening & rate limiting. Removed `#[NoAdminRequired]` from `startEngine()` and `getStatus()`. Added `#[UserRateLimit]` to `startEngine`, `testConnection`, `syncTask`, `deleteTask`, and `deleteTaskFallback`. Removed hardcoded host triggers from `startEngine()`.
 - [x] **Step C (Complete):** Token storage encryption. Implemented `\OCP\Security\ICrypto` encryption/decryption in `NdDownloaderClient` and created migration `Version1001Date20261008000000.php` to encrypt existing tokens in place. Retained NC 28 compatibility.
-- [ ] Remove `/home/container/...` and hardcoded disk path fallbacks from `StorageSyncService.php`.
+- [x] **Step D (Complete):** Remove Motrix & Pterodactyl leftovers. Purged `motrix_*` config fallbacks, `http://motrix-server:16801` probe, `/apps/motrix` frontend route, and `/home/container/` touch commands. Documented `/mdxp` backend protocol in README and settings.
 - [ ] Refactor `StorageSyncService.php` to use Nextcloud's `IRootFolder` / `IUserFolder` APIs so it works seamlessly on standard storage and S3 Object Storage, with recursive traversal protection.
 - [ ] Implement Admin Domain/IP Allowlist and Denylist in `UrlValidator.php` to prevent SSRF and DNS rebinding attacks.
 

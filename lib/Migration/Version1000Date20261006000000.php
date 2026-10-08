@@ -70,30 +70,14 @@ class Version1000Date20261006000000 extends SimpleMigrationStep {
             /** @var \OCP\IConfig $config */
             $config = \OC::$server->get(\OCP\IConfig::class);
 
-            $token = $config->getAppValue('nddownloader', 'nddownloader_token', '');
-            if (empty($token)) {
-                $token = $config->getAppValue('nddownloader', 'motrix_token', (string)$config->getAppValue('motrix', 'motrix_token', ''));
-                if (!empty($token)) {
-                    $config->setAppValue('nddownloader', 'nddownloader_token', $token);
-                }
-            }
-
             $endpoint = $config->getAppValue('nddownloader', 'nddownloader_endpoint', '');
-            if (empty($endpoint) || $endpoint === 'http://motrix-server:16801') {
-                $endpoint = $config->getAppValue('nddownloader', 'motrix_endpoint', (string)$config->getAppValue('motrix', 'motrix_endpoint', 'http://nd-server:16801'));
-                if (empty($endpoint) || $endpoint === 'http://motrix-server:16801') {
-                    $endpoint = 'http://nd-server:16801';
-                }
-                $config->setAppValue('nddownloader', 'nddownloader_endpoint', $endpoint);
+            if (empty($endpoint) || str_contains($endpoint, 'motrix-server')) {
+                $config->setAppValue('nddownloader', 'nddownloader_endpoint', 'http://nd-server:16801');
             }
 
             $saveDir = $config->getAppValue('nddownloader', 'nddownloader_save_dir', '');
             if (empty($saveDir)) {
-                $saveDir = $config->getAppValue('nddownloader', 'motrix_save_dir', (string)$config->getAppValue('motrix', 'motrix_save_dir', '/downloads'));
-                if (empty($saveDir)) {
-                    $saveDir = '/downloads';
-                }
-                $config->setAppValue('nddownloader', 'nddownloader_save_dir', $saveDir);
+                $config->setAppValue('nddownloader', 'nddownloader_save_dir', '/downloads');
             }
         } catch (\Throwable $e) {
             // Non-fatal if config is unavailable during initial migration runner setup

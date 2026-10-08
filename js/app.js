@@ -52,7 +52,7 @@
     };
 
     const getApiUrl = (endpoint) => {
-        const appPrefix = window.location.pathname.includes('/apps/motrix') ? '/apps/motrix' : '/apps/nddownloader';
+        const appPrefix = '/apps/nddownloader';
         return OC.generateUrl ? OC.generateUrl(`${appPrefix}${endpoint}`) : `${appPrefix}${endpoint}`;
     };
 

@@ -239,9 +239,9 @@
                     <!-- SETTINGS TAB -->
                     <div class="nd-downloader-tab-content" id="nd-downloader-tab-settings">
                         <div class="nd-downloader-form-group">
-                            <label for="nd-downloader-setting-endpoint">Aria2 RPC server:</label>
-                            <input type="text" id="nd-downloader-setting-endpoint" placeholder="http://127.0.0.1:16801">
-                            <div class="nd-downloader-hint">RPC endpoint (default: http://127.0.0.1:16801).</div>
+                            <label for="nd-downloader-setting-endpoint">Download Server URL (/mdxp):</label>
+                            <input type="text" id="nd-downloader-setting-endpoint" placeholder="http://nd-server:16801">
+                            <div class="nd-downloader-hint">ND / Motrix RPC endpoint exposing /mdxp (default: http://nd-server:16801).</div>
                         </div>
 
                         <div class="nd-downloader-form-group">

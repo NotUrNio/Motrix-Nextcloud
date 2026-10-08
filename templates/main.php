@@ -144,9 +144,9 @@
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label for="input-setting-endpoint">Aria2 RPC server:</label>
+                    <label for="input-setting-endpoint">Download Server URL (/mdxp):</label>
                     <input type="text" id="input-setting-endpoint" class="form-control" placeholder="http://nd-server:16801">
-                    <small>Default is <code>http://nd-server:16801</code> (or Docker internal network <code>http://nd-server:16801</code>)</small>
+                    <small>ND / Motrix download server endpoint exposing <code>/mdxp</code> (default: <code>http://nd-server:16801</code>)</small>
                 </div>
 
                 <div class="form-group">

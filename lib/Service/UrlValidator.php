@@ -73,9 +73,7 @@ class UrlValidator {
             throw new InvalidArgumentException("Access to host '$cleanHost' is restricted");
         }
 
-        $allowPrivate = ($this->config->getAppValue('nddownloader', self::CONFIG_ALLOW_PRIVATE, '') !== '')
-            ? ($this->config->getAppValue('nddownloader', self::CONFIG_ALLOW_PRIVATE) === 'yes')
-            : ($this->config->getAppValue('motrix', self::CONFIG_ALLOW_PRIVATE, 'no') === 'yes');
+        $allowPrivate = $this->config->getAppValue('nddownloader', self::CONFIG_ALLOW_PRIVATE, 'no') === 'yes';
 
         // Collect resolved IP addresses
         $ips = [];

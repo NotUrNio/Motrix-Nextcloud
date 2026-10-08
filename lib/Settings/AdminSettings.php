@@ -11,36 +11,21 @@ use OCP\Settings\ISettings;
 use OCP\Util;
 
 class AdminSettings implements ISettings {
-    private IConfig $config;
+    private NdDownloaderClient $ndClient;
 
-    public function __construct(IConfig $config) {
-        $this->config = $config;
+    public function __construct(NdDownloaderClient $ndClient) {
+        $this->ndClient = $ndClient;
     }
 
     public function getForm(): TemplateResponse {
-        Util::addScript('nddownloader', 'admin-settings');
-
-        $endpoint = (string)$this->config->getAppValue('nddownloader', NdDownloaderClient::CONFIG_ENDPOINT, '');
-        if (empty($endpoint) || $endpoint === 'http://motrix-server:16801') {
-            $endpoint = (string)$this->config->getAppValue('nddownloader', 'motrix_endpoint', (string)$this->config->getAppValue('motrix', 'motrix_endpoint', 'http://nd-server:16801'));
-        }
-        if (empty($endpoint) || $endpoint === 'http://motrix-server:16801') {
-            $endpoint = 'http://nd-server:16801';
-        }
-
-        $saveDir = (string)$this->config->getAppValue('nddownloader', NdDownloaderClient::CONFIG_DEFAULT_SAVE_DIR, '');
-        if (empty($saveDir)) {
-            $saveDir = (string)$this->config->getAppValue('nddownloader', 'motrix_save_dir', (string)$this->config->getAppValue('motrix', 'motrix_save_dir', '/downloads'));
-        }
-
-        $hasToken = !empty($this->config->getAppValue('nddownloader', NdDownloaderClient::CONFIG_TOKEN, ''))
-            || !empty($this->config->getAppValue('motrix', 'motrix_token', ''));
-
-        return new TemplateResponse('nddownloader', 'admin', [
-            'endpoint' => $endpoint,
-            'saveDir' => $saveDir,
-            'hasToken' => $hasToken,
+        $response = new TemplateResponse('nddownloader', 'admin', [
+            'endpoint' => $this->ndClient->getEndpoint(),
+            'saveDir' => $this->ndClient->getDefaultSaveDir(),
+            'hasToken' => !empty($this->ndClient->getToken()),
         ], '');
+        $response->addScript('nddownloader', 'admin-settings');
+
+        return $response;
     }
 
     public function getSection(): string {

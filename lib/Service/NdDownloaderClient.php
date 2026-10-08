@@ -40,12 +40,6 @@ class NdDownloaderClient {
         if (empty($endpoint)) {
             $endpoint = (string)$this->config->getAppValue('nddownloader', 'endpoint', '');
         }
-        if (empty($endpoint)) {
-            $endpoint = (string)$this->config->getAppValue('nddownloader', 'motrix_endpoint', (string)$this->config->getAppValue('motrix', 'motrix_endpoint', 'http://nd-server:16801'));
-        }
-        if (empty($endpoint) || $endpoint === 'http://motrix-server:16801') {
-            $endpoint = 'http://nd-server:16801';
-        }
         return !empty($endpoint) ? rtrim($endpoint, '/') : 'http://nd-server:16801';
     }
 
@@ -91,9 +85,6 @@ class NdDownloaderClient {
         }
         if (empty($saveDir)) {
             $saveDir = (string)$this->config->getAppValue('nddownloader', 'save_dir', '');
-        }
-        if (empty($saveDir)) {
-            $saveDir = (string)$this->config->getAppValue('nddownloader', 'motrix_save_dir', (string)$this->config->getAppValue('motrix', 'motrix_save_dir', '/downloads'));
         }
         return !empty($saveDir) ? $saveDir : '/downloads';
     }
