@@ -1,7 +1,7 @@
-<div id="app" class="motrix-app">
+<div id="app" class="nd-downloader-app">
     <!-- App Sidebar Navigation -->
-    <div id="app-navigation" class="motrix-nav">
-        <ul class="motrix-filter-list">
+    <div id="app-navigation" class="nd-downloader-nav">
+        <ul class="nd-downloader-filter-list">
             <li class="active" data-filter="all">
                 <a href="#all" class="icon-folder">
                     <span class="nav-label">All Downloads</span>
@@ -30,17 +30,17 @@
 
         <div id="app-settings">
             <div id="app-settings-header">
-                <button class="settings-button" id="motrix-open-settings" title="Settings">
-                    <span>Motrix Settings</span>
+                <button class="settings-button" id="nddownloader-open-settings" title="Settings">
+                    <span>ND Settings</span>
                 </button>
             </div>
         </div>
     </div>
 
     <!-- App Content Area -->
-    <div id="app-content" class="motrix-content">
+    <div id="app-content" class="nd-downloader-content">
         <!-- Top Toolbar -->
-        <div class="motrix-toolbar">
+        <div class="nd-downloader-toolbar">
             <div class="toolbar-left">
                 <button id="btn-new-task" class="primary button">
                     <span class="icon-add"></span> + New Download
@@ -63,28 +63,28 @@
         </div>
 
         <!-- Task List Container -->
-        <div class="motrix-task-container">
-            <div id="motrix-loading" class="motrix-banner hidden">
+        <div class="nd-downloader-task-container">
+            <div id="nddownloader-loading" class="nd-downloader-banner hidden">
                 <span class="icon-loading-small"></span> Loading tasks...
             </div>
 
-            <div id="motrix-error" class="motrix-banner motrix-banner-error hidden">
-                <span id="motrix-error-text"></span>
+            <div id="nddownloader-error" class="nd-downloader-banner nd-downloader-banner-error hidden">
+                <span id="nddownloader-error-text"></span>
             </div>
 
-            <div id="motrix-empty" class="motrix-empty hidden">
+            <div id="nddownloader-empty" class="nd-downloader-empty hidden">
                 <div class="empty-icon">📥</div>
                 <h2>No downloads yet</h2>
                 <p>Click <strong>+ New Download</strong> above to start downloading HTTP, FTP, or Magnet links directly into Nextcloud.</p>
             </div>
 
-            <div id="motrix-task-list" class="motrix-task-list"></div>
+            <div id="nddownloader-task-list" class="nd-downloader-task-list"></div>
         </div>
     </div>
 
     <!-- Modal: Add Download -->
-    <div id="modal-add-task" class="motrix-modal-backdrop hidden">
-        <div class="motrix-modal">
+    <div id="modal-add-task" class="nd-downloader-modal-backdrop hidden">
+        <div class="nd-downloader-modal">
             <div class="modal-header">
                 <h3>Add New Download</h3>
                 <button class="modal-close" id="modal-add-close">&times;</button>
@@ -126,17 +126,17 @@
     </div>
 
     <!-- Modal: Settings -->
-    <div id="modal-settings" class="motrix-modal-backdrop hidden">
-        <div class="motrix-modal">
+    <div id="modal-settings" class="nd-downloader-modal-backdrop hidden">
+        <div class="nd-downloader-modal">
             <div class="modal-header">
-                <h3>Motrix Connection Settings</h3>
+                <h3>ND Downloader Connection Settings</h3>
                 <button class="modal-close" id="modal-settings-close">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label for="input-setting-endpoint">Motrix Server Endpoint (MDXP):</label>
+                    <label for="input-setting-endpoint">Aria2 RPC server:</label>
                     <input type="text" id="input-setting-endpoint" class="form-control" placeholder="http://127.0.0.1:16801">
-                    <small>Default is <code>http://127.0.0.1:16801</code> (or Docker internal network <code>http://motrix:16801</code>)</small>
+                    <small>Default is <code>http://127.0.0.1:16801</code> (or Docker internal network <code>http://aria2:16801</code>)</small>
                 </div>
 
                 <div class="form-group">
@@ -149,7 +149,7 @@
                     <input type="text" id="input-setting-savedir" class="form-control" placeholder="/downloads">
                 </div>
 
-                <div id="test-connection-result" class="motrix-test-result hidden"></div>
+                <div id="test-connection-result" class="nd-downloader-test-result hidden"></div>
             </div>
             <div class="modal-footer">
                 <button class="button" id="btn-test-connection">Test Connection</button>

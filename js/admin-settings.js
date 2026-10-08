@@ -1,19 +1,19 @@
 /**
- * Motrix Nextcloud App - Admin Settings Handler
+ * ND Downloader Nextcloud App - Admin Settings Handler
  */
 (function () {
     'use strict';
 
     function initAdminSettings() {
-        const container = document.getElementById('motrix-admin-settings');
+        const container = document.getElementById('nddownloader-admin-settings');
         if (!container) return;
 
-        const saveBtn = document.getElementById('motrix_admin_save');
-        const testBtn = document.getElementById('motrix_admin_test');
-        const endpointInput = document.getElementById('motrix_admin_endpoint');
-        const savedirInput = document.getElementById('motrix_admin_savedir');
-        const tokenInput = document.getElementById('motrix_admin_token');
-        const statusEl = document.getElementById('motrix_admin_status');
+        const saveBtn = document.getElementById('nddownloader_admin_save');
+        const testBtn = document.getElementById('nddownloader_admin_test');
+        const endpointInput = document.getElementById('nddownloader_admin_endpoint');
+        const savedirInput = document.getElementById('nddownloader_admin_savedir');
+        const tokenInput = document.getElementById('nddownloader_admin_token');
+        const statusEl = document.getElementById('nddownloader_admin_status');
 
         if (!saveBtn) return;
 
@@ -23,8 +23,8 @@
 
         const getApiUrl = (endpoint) => {
             return window.OC && typeof window.OC.generateUrl === 'function'
-                ? window.OC.generateUrl(`/apps/motrix${endpoint}`)
-                : `/apps/motrix${endpoint}`;
+                ? window.OC.generateUrl(`/apps/nddownloader${endpoint}`)
+                : `/apps/nddownloader${endpoint}`;
         };
 
         saveBtn.addEventListener('click', async () => {
@@ -60,7 +60,7 @@
                         tokenInput.placeholder = '••••••••';
                     }
                     if (window.OC?.Notification?.showTemporary) {
-                        window.OC.Notification.showTemporary('Motrix settings saved');
+                        window.OC.Notification.showTemporary('ND Downloader settings saved');
                     }
                 } else {
                     statusEl.textContent = '✕ Error: ' + (data.error || 'Failed to save settings');

@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace OCA\Motrix\Service;
+namespace OCA\NdDownloader\Service;
 
 use OCP\IConfig;
 use OCP\Http\Client\IClientService;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 
-class MotrixClient {
-    public const CONFIG_ENDPOINT = 'motrix_endpoint';
-    public const CONFIG_TOKEN = 'motrix_token';
-    public const CONFIG_DEFAULT_SAVE_DIR = 'motrix_save_dir';
+class NdDownloaderClient {
+    public const CONFIG_ENDPOINT = 'nddownloader_endpoint';
+    public const CONFIG_TOKEN = 'nddownloader_token';
+    public const CONFIG_DEFAULT_SAVE_DIR = 'nddownloader_save_dir';
 
     private IConfig $config;
     private IClientService $clientService;
@@ -29,18 +29,25 @@ class MotrixClient {
     }
 
     public function getEndpoint(): string {
-        $endpoint = (string)$this->config->getAppValue('motrix', self::CONFIG_ENDPOINT, 'http://127.0.0.1:16801');
+        $endpoint = (string)$this->config->getAppValue('nddownloader', self::CONFIG_ENDPOINT, '');
+        if (empty($endpoint)) {
+            $endpoint = (string)$this->config->getAppValue('nddownloader', 'motrix_endpoint', (string)$this->config->getAppValue('motrix', 'motrix_endpoint', 'http://127.0.0.1:16801'));
+        }
         return rtrim($endpoint, '/');
     }
 
     public function getToken(): string {
-        $token = (string)$this->config->getAppValue('motrix', self::CONFIG_TOKEN, '');
+        $token = (string)$this->config->getAppValue('nddownloader', self::CONFIG_TOKEN, '');
+        if (empty($token)) {
+            $token = (string)$this->config->getAppValue('nddownloader', 'motrix_token', (string)$this->config->getAppValue('motrix', 'motrix_token', ''));
+        }
         if (!empty($token)) {
             return $token;
         }
 
         $candidates = [
             '/downloads/bridge/endpoint.json',
+            '/home/container/nddownloader/bridge/endpoint.json',
             '/home/container/motrix/bridge/endpoint.json',
             '/data/bridge/endpoint.json',
         ];
@@ -60,19 +67,26 @@ class MotrixClient {
     }
 
     public function getDefaultSaveDir(): string {
-        return (string)$this->config->getAppValue('motrix', self::CONFIG_DEFAULT_SAVE_DIR, '/downloads');
+        $saveDir = (string)$this->config->getAppValue('nddownloader', self::CONFIG_DEFAULT_SAVE_DIR, '');
+        if (empty($saveDir)) {
+            $saveDir = (string)$this->config->getAppValue('nddownloader', 'motrix_save_dir', (string)$this->config->getAppValue('motrix', 'motrix_save_dir', '/downloads'));
+        }
+        return $saveDir;
     }
 
     /**
-     * Executes a JSON-RPC 2.0 call to the Motrix MDXP endpoint.
+     * Executes a JSON-RPC 2.0 call to the backend server endpoint.
      */
     public function call(string $method, array $params = []): mixed {
-        $endpoint = $this->getEndpoint() . '/mdxp';
+        $base = $this->getEndpoint();
+        $endpoint = (str_ends_with($base, '/mdxp') || str_ends_with($base, '/jsonrpc'))
+            ? $base
+            : $base . '/mdxp';
         $token = $this->getToken();
 
         $payload = [
             'jsonrpc' => '2.0',
-            'id' => uniqid('nc_motrix_', true),
+            'id' => uniqid('nc_nd_', true),
             'method' => $method,
             'params' => empty($params) ? new \stdClass() : $params,
         ];
@@ -97,7 +111,7 @@ class MotrixClient {
 
             $statusCode = $response->getStatusCode();
             if ($statusCode < 200 || $statusCode >= 300) {
-                throw new RuntimeException("Motrix server responded with HTTP status code $statusCode");
+                throw new RuntimeException("ND Downloader server responded with HTTP status code $statusCode");
             }
 
             $body = $response->getBody();
@@ -114,18 +128,18 @@ class MotrixClient {
                 str_contains($lower, 'connect')
             ) {
                 throw new RuntimeException(
-                    "Unable to connect to Motrix server ({$msg}). If Motrix is hosted on a local or private address, please enable 'allow_local_remote_servers' => true in Nextcloud's config/config.php.",
+                    "Unable to connect to ND Downloader server ({$msg}). If ND Downloader is hosted on a local or private address, please enable 'allow_local_remote_servers' => true in Nextcloud's config/config.php.",
                     0,
                     $e
                 );
             }
-            throw new RuntimeException('Unable to communicate with Motrix: ' . $msg, 0, $e);
+            throw new RuntimeException('Unable to communicate with ND Downloader: ' . $msg, 0, $e);
         }
 
         if (isset($data['error'])) {
             $errCode = $data['error']['code'] ?? -1;
             $errMsg = $data['error']['message'] ?? 'Unknown JSON-RPC error';
-            throw new RuntimeException("Motrix JSON-RPC error [$errCode]: $errMsg");
+            throw new RuntimeException("ND Downloader JSON-RPC error [$errCode]: $errMsg");
         }
 
         return $data['result'] ?? null;

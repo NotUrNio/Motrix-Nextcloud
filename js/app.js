@@ -1,5 +1,5 @@
 /**
- * Motrix Nextcloud App Frontend Controller
+ * ND Downloader Nextcloud App Frontend Controller
  */
 (function () {
     'use strict';
@@ -7,7 +7,7 @@
     let currentFilter = 'all';
     let pollTimer = null;
     let allTasks = [];
-    const sessionSyncedTasks = window._motrixSyncedTasks || (window._motrixSyncedTasks = new Map());
+    const sessionSyncedTasks = window._ndDownloaderSyncedTasks || (window._ndDownloaderSyncedTasks = new Map());
 
     const formatBytes = (bytes) => {
         if (!bytes || bytes <= 0) return '0 B';
@@ -52,7 +52,7 @@
     };
 
     const getApiUrl = (endpoint) => {
-        return OC.generateUrl ? OC.generateUrl(`/apps/motrix${endpoint}`) : `/apps/motrix${endpoint}`;
+        return OC.generateUrl ? OC.generateUrl(`/apps/nddownloader${endpoint}`) : `/apps/nddownloader${endpoint}`;
     };
 
     const showNotification = (msg, type = 'info') => {
@@ -65,11 +65,11 @@
             return;
         }
 
-        const existingToast = document.querySelector('.motrix-toast');
+        const existingToast = document.querySelector('.nd-downloader-toast');
         if (existingToast) existingToast.remove();
 
         const toast = document.createElement('div');
-        toast.className = `motrix-toast motrix-toast-${type}`;
+        toast.className = `nd-downloader-toast nd-downloader-toast-${type}`;
         toast.style.cssText = `
             position: fixed;
             bottom: 24px;
@@ -128,7 +128,7 @@
                 showError(data.error || 'Failed to fetch tasks');
             }
         } catch (err) {
-            showError('Could not reach Motrix bridge: ' + err.message);
+            showError('Could not reach ND Downloader bridge: ' + err.message);
         }
     };
 
@@ -146,8 +146,8 @@
     };
 
     const renderTasks = () => {
-        const container = document.getElementById('motrix-task-list');
-        const emptyState = document.getElementById('motrix-empty');
+        const container = document.getElementById('nddownloader-task-list');
+        const emptyState = document.getElementById('nddownloader-empty');
 
         let filtered = allTasks;
         if (currentFilter !== 'all') {
@@ -175,7 +175,7 @@
             const eta = formatEta(t.etaSec);
 
             const card = document.createElement('div');
-            card.className = 'motrix-task-card';
+            card.className = 'nd-downloader-task-card';
             card.id = `task-${t.id}`;
 
             const header = document.createElement('div');
@@ -224,13 +224,13 @@
                 const pauseBtn = document.createElement('button');
                 pauseBtn.className = 'task-btn';
                 pauseBtn.textContent = 'Pause';
-                pauseBtn.addEventListener('click', () => window.motrixApp.pauseTask(t.id));
+                pauseBtn.addEventListener('click', () => window.ndDownloaderApp.pauseTask(t.id));
                 actions.appendChild(pauseBtn);
             } else if (t.status === 'paused') {
                 const resumeBtn = document.createElement('button');
                 resumeBtn.className = 'task-btn';
                 resumeBtn.textContent = 'Resume';
-                resumeBtn.addEventListener('click', () => window.motrixApp.resumeTask(t.id));
+                resumeBtn.addEventListener('click', () => window.ndDownloaderApp.resumeTask(t.id));
                 actions.appendChild(resumeBtn);
             }
 
@@ -251,7 +251,7 @@
                     const syncBtn = document.createElement('button');
                     syncBtn.className = `task-btn primary btn-sync-${t.id}`;
                     syncBtn.textContent = '📂 Save to Files';
-                    syncBtn.addEventListener('click', () => window.motrixApp.syncTask(t.id));
+                    syncBtn.addEventListener('click', () => window.ndDownloaderApp.syncTask(t.id));
                     actions.appendChild(syncBtn);
                 }
             }
@@ -259,7 +259,7 @@
             const removeBtn = document.createElement('button');
             removeBtn.className = 'task-btn danger';
             removeBtn.textContent = 'Remove';
-            removeBtn.addEventListener('click', () => window.motrixApp.deleteTask(t.id));
+            removeBtn.addEventListener('click', () => window.ndDownloaderApp.deleteTask(t.id));
             actions.appendChild(removeBtn);
 
             meta.appendChild(actions);
@@ -277,18 +277,18 @@
     };
 
     const showError = (msg) => {
-        const errBox = document.getElementById('motrix-error');
-        const errText = document.getElementById('motrix-error-text');
+        const errBox = document.getElementById('nddownloader-error');
+        const errText = document.getElementById('nddownloader-error-text');
         errText.textContent = msg;
         errBox.classList.remove('hidden');
     };
 
     const hideError = () => {
-        document.getElementById('motrix-error').classList.add('hidden');
+        document.getElementById('nddownloader-error').classList.add('hidden');
     };
 
-    // Public actions exposed on window.motrixApp
-    window.motrixApp = {
+    // Public actions exposed on window.ndDownloaderApp
+    window.ndDownloaderApp = {
         pauseTask: async (taskId) => {
             await fetch(getApiUrl(`/api/tasks/${taskId}/pause`), {
                 method: 'POST',
@@ -334,7 +334,7 @@
                     }
                 }
             } catch (err) {
-                console.error('[Motrix] Error deleting task:', err);
+                console.error('[ND Downloader] Error deleting task:', err);
                 showNotification('Error removing task: ' + err.message, 'error');
                 if (card) {
                     card.style.opacity = '1';
@@ -401,7 +401,7 @@
                     }
                 }
             } catch (e) {
-                console.error('[Motrix] Sync failed:', e);
+                console.error('[ND Downloader] Sync failed:', e);
                 showNotification('Sync failed: ' + e.message, 'error');
                 if (syncBtn) {
                     syncBtn.disabled = false;
@@ -414,10 +414,10 @@
     // Event Listeners initialization
     document.addEventListener('DOMContentLoaded', () => {
         // Navigation Filters
-        document.querySelectorAll('.motrix-filter-list li').forEach(li => {
+        document.querySelectorAll('.nd-downloader-filter-list li').forEach(li => {
             li.addEventListener('click', (e) => {
                 e.preventDefault();
-                document.querySelectorAll('.motrix-filter-list li').forEach(el => el.classList.remove('active'));
+                document.querySelectorAll('.nd-downloader-filter-list li').forEach(el => el.classList.remove('active'));
                 li.classList.add('active');
                 currentFilter = li.getAttribute('data-filter') || 'all';
                 renderTasks();
@@ -451,21 +451,29 @@
             document.getElementById('group-magnet').classList.toggle('hidden', isUrl);
         });
 
-        // Submit Add Task
+        // Submit new download
         document.getElementById('btn-submit-add').addEventListener('click', async () => {
             const kind = kindSelect.value;
-            const payload = { kind };
+            const targetFolder = document.getElementById('input-task-folder').value.trim();
+            const filename = document.getElementById('input-task-filename').value.trim();
+
+            const payload = { kind, targetFolder };
+            if (filename) payload.filename = filename;
 
             if (kind === 'url') {
-                payload.url = document.getElementById('input-task-url').value.trim();
-                payload.filename = document.getElementById('input-task-filename').value.trim() || undefined;
-            } else {
-                payload.magnet = document.getElementById('input-task-magnet').value.trim();
-            }
-
-            const folderInput = document.getElementById('input-task-folder');
-            if (folderInput && folderInput.value.trim()) {
-                payload.targetFolder = folderInput.value.trim();
+                const url = document.getElementById('input-task-url').value.trim();
+                if (!url) {
+                    showNotification('Please enter a download URL', 'error');
+                    return;
+                }
+                payload.url = url;
+            } else if (kind === 'magnet') {
+                const magnet = document.getElementById('input-task-magnet').value.trim();
+                if (!magnet) {
+                    showNotification('Please enter a Magnet link', 'error');
+                    return;
+                }
+                payload.magnet = magnet;
             }
 
             try {
@@ -477,15 +485,17 @@
                     },
                     body: JSON.stringify(payload)
                 });
+
                 const data = await safeParseJson(res);
                 if (data.success) {
                     addModal.classList.add('hidden');
                     document.getElementById('input-task-url').value = '';
                     document.getElementById('input-task-magnet').value = '';
+                    document.getElementById('input-task-filename').value = '';
                     fetchTasks();
-                    showNotification('Download started', 'success');
+                    showNotification('Download started successfully!', 'success');
                 } else {
-                    showNotification('Error adding download: ' + (data.error || 'Unknown error'), 'error');
+                    showNotification('Failed to add download: ' + (data.error || 'Server error'), 'error');
                 }
             } catch (err) {
                 showNotification('Request failed: ' + err.message, 'error');
@@ -494,7 +504,7 @@
 
         // Settings Modal
         const settingsModal = document.getElementById('modal-settings');
-        document.getElementById('motrix-open-settings').addEventListener('click', async () => {
+        document.getElementById('nddownloader-open-settings').addEventListener('click', async () => {
             settingsModal.classList.remove('hidden');
             try {
                 const res = await fetch(getApiUrl('/api/settings'), {
@@ -554,7 +564,7 @@
                 const data = await safeParseJson(res);
                 if (data.success) {
                     resDiv.style.color = '#28a745';
-                    resDiv.textContent = 'Connected successfully to Motrix engine!';
+                    resDiv.textContent = 'Connected successfully to ND Downloader engine!';
                 } else {
                     resDiv.style.color = '#dc3545';
                     resDiv.textContent = 'Connection failed: ' + (data.error || 'Unreachable');

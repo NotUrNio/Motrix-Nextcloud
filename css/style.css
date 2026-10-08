@@ -1,12 +1,12 @@
-/* Motrix Nextcloud App Styling */
+/* ND Downloader Nextcloud App Styling */
 
-.motrix-app {
+.nd-downloader-app {
     display: flex;
     height: 100%;
     width: 100%;
 }
 
-.motrix-nav {
+.nd-downloader-nav {
     width: 250px;
     border-right: 1px solid var(--color-border, #e0e0e0);
     padding: 15px 10px;
@@ -15,18 +15,18 @@
     justify-content: space-between;
 }
 
-.motrix-filter-list {
+.nd-downloader-filter-list {
     list-style: none;
     padding: 0;
     margin: 0;
 }
 
-.motrix-filter-list li {
+.nd-downloader-filter-list li {
     border-radius: var(--border-radius-large, 8px);
     margin-bottom: 4px;
 }
 
-.motrix-filter-list li a {
+.nd-downloader-filter-list li a {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -36,12 +36,12 @@
     font-weight: 500;
 }
 
-.motrix-filter-list li.active,
-.motrix-filter-list li:hover {
+.nd-downloader-filter-list li.active,
+.nd-downloader-filter-list li:hover {
     background-color: var(--color-background-hover, #f0f4f8);
 }
 
-.motrix-filter-list li.active a {
+.nd-downloader-filter-list li.active a {
     color: var(--color-primary, #0082c9);
 }
 
@@ -53,7 +53,7 @@
     color: var(--color-text-maxcontrast, #555);
 }
 
-.motrix-content {
+.nd-downloader-content {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -62,7 +62,7 @@
     background: var(--color-main-background, #fff);
 }
 
-.motrix-toolbar {
+.nd-downloader-toolbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -89,24 +89,24 @@
     color: #007bff;
 }
 
-.motrix-task-container {
+.nd-downloader-task-container {
     flex: 1;
 }
 
-.motrix-banner {
+.nd-downloader-banner {
     padding: 12px 16px;
     border-radius: 6px;
     margin-bottom: 16px;
     font-size: 0.95em;
 }
 
-.motrix-banner-error {
+.nd-downloader-banner-error {
     background: #f8d7da;
     color: #721c24;
     border: 1px solid #f5c6cb;
 }
 
-.motrix-empty {
+.nd-downloader-empty {
     text-align: center;
     padding: 60px 20px;
     color: var(--color-text-maxcontrast, #777);
@@ -117,13 +117,13 @@
     margin-bottom: 12px;
 }
 
-.motrix-task-list {
+.nd-downloader-task-list {
     display: flex;
     flex-direction: column;
     gap: 12px;
 }
 
-.motrix-task-card {
+.nd-downloader-task-card {
     background: var(--color-main-background, #fff);
     border: 1px solid var(--color-border, #e3e6ea);
     border-radius: var(--border-radius-large, 10px);
@@ -135,7 +135,7 @@
     transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.motrix-task-card:hover {
+.nd-downloader-task-card:hover {
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
 }
 
@@ -218,7 +218,7 @@
 }
 
 /* Modals */
-.motrix-modal-backdrop {
+.nd-downloader-modal-backdrop {
     position: fixed;
     top: 0;
     left: 0;
@@ -231,7 +231,7 @@
     z-index: 10000;
 }
 
-.motrix-modal {
+.nd-downloader-modal {
     background: var(--color-main-background, #fff);
     border-radius: 12px;
     width: 90%;
@@ -292,6 +292,27 @@
     gap: 12px;
     background: var(--color-background-hover, #fafafa);
 }
+
+.nd-downloader-test-result {
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    margin-top: 10px;
+}
+
+.nd-downloader-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 0.9em;
+    z-index: 100001;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.nd-downloader-toast-success { background: #28a745; }
+.nd-downloader-toast-error { background: #dc3545; }
 
 .hidden {
     display: none !important;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\Motrix\Service;
+namespace OCA\NdDownloader\Service;
 
 use OCP\IDBConnection;
 
@@ -15,7 +15,7 @@ class TaskOwnershipService {
 
     public function recordTask(string $taskId, string $userId, string $targetFolder = ''): void {
         $qb = $this->db->getQueryBuilder();
-        $qb->insert('motrix_tasks')
+        $qb->insert('nddownloader_tasks')
             ->values([
                 'task_id' => $qb->createNamedParameter($taskId),
                 'user_id' => $qb->createNamedParameter($userId),
@@ -29,7 +29,7 @@ class TaskOwnershipService {
     public function getTask(string $taskId): ?array {
         $qb = $this->db->getQueryBuilder();
         $qb->select('*')
-            ->from('motrix_tasks')
+            ->from('nddownloader_tasks')
             ->where($qb->expr()->eq('task_id', $qb->createNamedParameter($taskId)))
             ->setMaxResults(1);
 
@@ -49,7 +49,7 @@ class TaskOwnershipService {
     public function getUserTaskIds(string $userId): array {
         $qb = $this->db->getQueryBuilder();
         $qb->select('task_id')
-            ->from('motrix_tasks')
+            ->from('nddownloader_tasks')
             ->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId)));
 
         $result = $qb->executeQuery();
@@ -62,7 +62,7 @@ class TaskOwnershipService {
 
     public function markTaskSynced(string $taskId): void {
         $qb = $this->db->getQueryBuilder();
-        $qb->update('motrix_tasks')
+        $qb->update('nddownloader_tasks')
             ->set('synced', $qb->createNamedParameter(true, \PDO::PARAM_BOOL))
             ->where($qb->expr()->eq('task_id', $qb->createNamedParameter($taskId)));
         $qb->executeStatement();
@@ -70,7 +70,7 @@ class TaskOwnershipService {
 
     public function deleteTask(string $taskId): void {
         $qb = $this->db->getQueryBuilder();
-        $qb->delete('motrix_tasks')
+        $qb->delete('nddownloader_tasks')
             ->where($qb->expr()->eq('task_id', $qb->createNamedParameter($taskId)));
         $qb->executeStatement();
     }

@@ -1,10 +1,9 @@
 /**
- * Motrix Nextcloud App - Files Menu & Shortcut Styles
+ * ND Downloader Nextcloud App - Files Menu & Shortcut Styles
  */
 
-
 /* Menu Entry Icon Styling */
-.motrix-menu-icon {
+.nd-downloader-menu-icon {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -15,14 +14,14 @@
     vertical-align: middle !important;
 }
 
-.motrix-menu-icon svg {
+.nd-downloader-menu-icon svg {
     width: 18px !important;
     height: 18px !important;
     stroke: var(--color-primary-element, #0082c9) !important;
 }
 
 /* Modal Overlay */
-.motrix-modal-overlay {
+.nd-downloader-modal-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -34,11 +33,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    animation: motrixFadeIn 0.2s ease-out;
+    animation: ndDownloaderFadeIn 0.2s ease-out;
 }
 
 /* Modal Box */
-.motrix-modal {
+.nd-downloader-modal {
     background: var(--color-main-background, #181b1f);
     color: var(--color-main-text, #ffffff);
     border: 1px solid var(--color-border, #333842);
@@ -47,12 +46,12 @@
     max-width: 560px;
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
     overflow: hidden;
-    animation: motrixSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: ndDownloaderSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     font-family: var(--font-face, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
 }
 
 /* Modal Header */
-.motrix-modal-header {
+.nd-downloader-modal-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -61,7 +60,7 @@
     background: var(--color-background-hover, rgba(255, 255, 255, 0.03));
 }
 
-.motrix-modal-title {
+.nd-downloader-modal-title {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -70,13 +69,13 @@
     margin: 0;
 }
 
-.motrix-modal-title svg {
+.nd-downloader-modal-title svg {
     width: 24px;
     height: 24px;
     color: var(--color-primary-element, #0082c9);
 }
 
-.motrix-modal-close {
+.nd-downloader-modal-close {
     background: transparent;
     border: none;
     color: var(--color-text-maxcontrast, #888);
@@ -88,371 +87,362 @@
     transition: background 0.15s, color 0.15s;
 }
 
-.motrix-modal-close:hover {
+.nd-downloader-modal-close:hover {
     background: var(--color-background-hover, rgba(255, 255, 255, 0.1));
     color: var(--color-main-text, #fff);
 }
 
 /* Tabs */
-.motrix-tabs {
+.nd-downloader-tabs {
     display: flex;
     border-bottom: 1px solid var(--color-border, #333842);
     padding: 0 20px;
-    background: var(--color-background-hover, rgba(255, 255, 255, 0.02));
+    background: var(--color-main-background, #181b1f);
 }
 
-.motrix-tab-btn {
+.nd-downloader-tab-btn {
     background: transparent;
     border: none;
-    padding: 12px 18px;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--color-text-maxcontrast, #aaa);
-    cursor: pointer;
     border-bottom: 2px solid transparent;
-    transition: all 0.15s;
+    color: var(--color-text-maxcontrast, #888);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.15s ease;
 }
 
-.motrix-tab-btn:hover {
+.nd-downloader-tab-btn:hover {
     color: var(--color-main-text, #fff);
 }
 
-.motrix-tab-btn.active {
+.nd-downloader-tab-btn.active {
     color: var(--color-primary-element, #0082c9);
     border-bottom-color: var(--color-primary-element, #0082c9);
-    font-weight: 600;
 }
 
 /* Modal Body */
-.motrix-modal-body {
+.nd-downloader-modal-body {
     padding: 20px;
-    max-height: 70vh;
+    max-height: 75vh;
     overflow-y: auto;
 }
 
-.motrix-tab-content {
+.nd-downloader-tab-content {
     display: none;
 }
 
-.motrix-tab-content.active {
+.nd-downloader-tab-content.active {
     display: block;
 }
 
-/* Target Folder Banner */
-.motrix-folder-badge {
+/* Target Folder Badge */
+.nd-downloader-folder-badge {
     display: flex;
     align-items: center;
     gap: 8px;
     background: var(--color-background-hover, rgba(255, 255, 255, 0.05));
-    border: 1px solid var(--color-border, #333842);
+    border: 1px solid var(--color-border, #2d333b);
     border-radius: 8px;
     padding: 8px 12px;
-    margin-bottom: 16px;
     font-size: 13px;
     color: var(--color-text-maxcontrast, #aaa);
+    margin-bottom: 16px;
 }
 
-.motrix-folder-badge strong {
-    color: var(--color-primary-element, #0082c9);
+.nd-downloader-folder-badge strong {
+    color: var(--color-main-text, #fff);
+    font-family: var(--font-monospace, monospace);
     word-break: break-all;
 }
 
 /* Form Groups */
-.motrix-form-group {
+.nd-downloader-form-group {
     margin-bottom: 16px;
 }
 
-.motrix-form-group label {
+.nd-downloader-form-group label {
     display: block;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     margin-bottom: 6px;
-    color: var(--color-main-text, #fff);
+    color: var(--color-main-text, #eee);
 }
 
-.motrix-form-group input,
-.motrix-form-group textarea {
+.nd-downloader-form-group input,
+.nd-downloader-form-group textarea {
     width: 100%;
     box-sizing: border-box;
-    padding: 10px 12px;
-    background: var(--color-main-background, #14171a);
-    border: 1px solid var(--color-border, #383d47);
+    background: var(--color-main-background, #111418);
+    border: 1px solid var(--color-border, #333842);
     border-radius: 8px;
-    color: var(--color-main-text, #fff);
+    padding: 10px 12px;
     font-size: 14px;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    color: var(--color-main-text, #fff);
+    font-family: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.motrix-form-group input:focus,
-.motrix-form-group textarea:focus {
+.nd-downloader-form-group input:focus,
+.nd-downloader-form-group textarea:focus {
     border-color: var(--color-primary-element, #0082c9);
     outline: none;
     box-shadow: 0 0 0 2px rgba(0, 130, 201, 0.25);
 }
 
-.motrix-form-group textarea {
-    min-height: 80px;
+.nd-downloader-form-group textarea {
+    height: 90px;
     resize: vertical;
-    font-family: inherit;
-}
-
-.motrix-hint {
+    font-family: var(--font-monospace, monospace);
     font-size: 12px;
-    color: var(--color-text-maxcontrast, #888);
-    margin-top: 4px;
 }
 
-/* Drop Zone Area */
-.motrix-dropzone {
-    border: 2px dashed var(--color-border, #444b58);
+.nd-downloader-hint {
+    font-size: 12px;
+    color: var(--color-text-maxcontrast, #777);
+    margin-top: 5px;
+}
+
+/* Drag & Drop Zone */
+.nd-downloader-dropzone {
+    border: 2px dashed var(--color-border, #3a424e);
     border-radius: 10px;
-    padding: 18px;
+    padding: 20px;
     text-align: center;
     background: var(--color-background-hover, rgba(255, 255, 255, 0.02));
     margin-bottom: 16px;
-    transition: all 0.2s;
     cursor: pointer;
+    transition: all 0.2s ease;
 }
 
-.motrix-dropzone.dragover {
+.nd-downloader-dropzone.dragover {
     border-color: var(--color-primary-element, #0082c9);
     background: rgba(0, 130, 201, 0.08);
 }
 
-.motrix-dropzone-icon {
-    font-size: 24px;
-    margin-bottom: 4px;
+.nd-downloader-dropzone-icon {
+    font-size: 26px;
+    margin-bottom: 6px;
 }
 
-.motrix-dropzone-text {
+.nd-downloader-dropzone-text {
     font-size: 13px;
-    color: var(--color-text-maxcontrast, #aaa);
+    color: var(--color-text-maxcontrast, #999);
 }
 
 /* Modal Actions */
-.motrix-modal-actions {
+.nd-downloader-modal-actions {
     display: flex;
-    align-items: center;
     justify-content: flex-end;
     gap: 10px;
     margin-top: 20px;
     padding-top: 16px;
-    border-top: 1px solid var(--color-border, #333842);
+    border-top: 1px solid var(--color-border, #2d333b);
 }
 
-.motrix-btn {
+/* Buttons */
+.nd-downloader-btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
-    padding: 9px 18px;
+    border: none;
     border-radius: 8px;
+    padding: 9px 18px;
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
-    border: 1px solid transparent;
-    transition: background 0.15s, opacity 0.15s;
+    transition: background 0.15s, opacity 0.15s, transform 0.05s;
 }
 
-.motrix-btn-primary {
+.nd-downloader-btn-primary {
     background: var(--color-primary-element, #0082c9);
-    color: #ffffff;
+    color: #fff;
 }
 
-.motrix-btn-primary:hover:not(:disabled) {
+.nd-downloader-btn-primary:hover:not(:disabled) {
     background: var(--color-primary-element-hover, #006da8);
 }
 
-.motrix-btn-secondary {
-    background: var(--color-background-hover, rgba(255, 255, 255, 0.08));
-    color: var(--color-main-text, #fff);
-    border-color: var(--color-border, #383d47);
+.nd-downloader-btn-secondary {
+    background: var(--color-background-hover, #2a2f38);
+    color: var(--color-main-text, #ddd);
 }
 
-.motrix-btn-secondary:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.14);
+.nd-downloader-btn-secondary:hover:not(:disabled) {
+    background: #363c47;
 }
 
-.motrix-btn:disabled {
-    opacity: 0.55;
+.nd-downloader-btn:disabled {
+    opacity: 0.5;
     cursor: not-allowed;
 }
 
-/* Live Task Progress Card */
-.motrix-task-card {
+/* Active Downloads in Modal */
+.nd-downloader-task-card {
     background: var(--color-background-hover, rgba(255, 255, 255, 0.04));
-    border: 1px solid var(--color-border, #383d47);
+    border: 1px solid var(--color-border, #2d333b);
     border-radius: 10px;
-    padding: 14px;
-    margin-top: 16px;
-    animation: motrixFadeIn 0.25s ease-out;
+    padding: 12px 14px;
+    margin-top: 12px;
+    animation: ndDownloaderFadeIn 0.25s ease-out;
 }
 
-.motrix-task-card-header {
+.nd-downloader-task-card-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
     margin-bottom: 8px;
+    gap: 8px;
 }
 
-.motrix-task-name {
+.nd-downloader-task-name {
+    font-size: 13px;
     font-weight: 600;
-    font-size: 14px;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 380px;
+    max-width: 340px;
 }
 
-.motrix-task-status-badge {
+.nd-downloader-task-status-badge {
     font-size: 11px;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-weight: 600;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 20px;
     text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.motrix-status-active {
-    background: rgba(0, 130, 201, 0.2);
-    color: #38bdf8;
+.nd-downloader-status-active {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
 }
 
-.motrix-status-paused {
-    background: rgba(234, 179, 8, 0.2);
-    color: #facc15;
+.nd-downloader-status-paused {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
 }
 
-.motrix-status-complete {
-    background: rgba(34, 197, 94, 0.2);
-    color: #4ade80;
+.nd-downloader-status-complete {
+    background: rgba(59, 130, 246, 0.2);
+    color: #3b82f6;
 }
 
-.motrix-status-error {
+.nd-downloader-status-error {
     background: rgba(239, 68, 68, 0.2);
-    color: #f87171;
+    color: #ef4444;
 }
 
-.motrix-progress-bar-bg {
-    width: 100%;
-    height: 7px;
-    background: var(--color-border, #333842);
-    border-radius: 4px;
+.nd-downloader-progress-bar-bg {
+    background: rgba(255, 255, 255, 0.08);
+    height: 6px;
+    border-radius: 3px;
     overflow: hidden;
     margin-bottom: 8px;
 }
 
-.motrix-progress-bar-fill {
+.nd-downloader-progress-bar-fill {
     height: 100%;
     background: var(--color-primary-element, #0082c9);
-    border-radius: 4px;
+    border-radius: 3px;
     transition: width 0.3s ease;
 }
 
-.motrix-progress-bar-fill.active {
-    background-image: linear-gradient(
+.nd-downloader-progress-bar-fill.active {
+    background: linear-gradient(
         45deg,
-        rgba(255, 255, 255, 0.2) 25%,
+        rgba(255, 255, 255, 0.15) 25%,
         transparent 25%,
         transparent 50%,
-        rgba(255, 255, 255, 0.2) 50%,
-        rgba(255, 255, 255, 0.2) 75%,
+        rgba(255, 255, 255, 0.15) 50%,
+        rgba(255, 255, 255, 0.15) 75%,
         transparent 75%,
         transparent
-    );
-    background-size: 24px 24px;
-    animation: motrixProgressStripes 1.2s linear infinite;
+    ), var(--color-primary-element, #0082c9);
+    background-size: 20px 20px;
+    animation: ndDownloaderProgressStripes 1.2s linear infinite;
 }
 
-@keyframes motrixProgressStripes {
+@keyframes ndDownloaderProgressStripes {
     0% { background-position: 0 0; }
-    100% { background-position: 24px 0; }
+    100% { background-position: 20px 0; }
 }
 
-.motrix-task-meta {
+.nd-downloader-task-meta {
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    align-items: center;
-    font-size: 12px;
+    font-size: 11px;
     color: var(--color-text-maxcontrast, #888);
-    gap: 8px;
-    flex-wrap: wrap;
+    font-family: var(--font-monospace, monospace);
 }
 
-.motrix-task-meta-stats {
-    flex: 1;
-    min-width: 0;
-}
-
-.motrix-task-actions {
+.nd-downloader-task-meta-stats {
     display: flex;
-    align-items: center;
+    gap: 8px;
+}
+
+.nd-downloader-task-actions {
+    display: flex;
     gap: 6px;
 }
 
-.motrix-mini-btn {
-    background: var(--color-background-hover, rgba(255, 255, 255, 0.08));
-    border: 1px solid var(--color-border, #383d47);
-    color: var(--color-main-text, #fff);
+.nd-downloader-mini-btn {
+    background: transparent;
+    border: 1px solid var(--color-border, #3a424e);
     border-radius: 4px;
-    padding: 3px 8px;
+    color: var(--color-text-maxcontrast, #ccc);
     font-size: 11px;
-    font-weight: 500;
+    padding: 2px 7px;
     cursor: pointer;
-    line-height: 1.2;
+    line-height: 1.4;
     transition: all 0.15s ease;
 }
 
-.motrix-mini-btn:hover {
-    background: rgba(255, 255, 255, 0.16);
-    border-color: var(--color-primary-element, #0082c9);
+.nd-downloader-mini-btn:hover {
+    background: var(--color-background-hover, rgba(255, 255, 255, 0.1));
+    color: #fff;
 }
 
-.motrix-mini-btn-danger:hover {
-    background: rgba(239, 68, 68, 0.25);
+.nd-downloader-mini-btn-danger:hover {
+    background: rgba(239, 68, 68, 0.2);
     border-color: #ef4444;
-    color: #fca5a5;
+    color: #ef4444;
 }
 
-/* Toast Message */
-.motrix-toast {
+/* Toast */
+.nd-downloader-toast {
     position: fixed;
     bottom: 24px;
     right: 24px;
-    background: var(--color-main-background, #1f232b);
-    color: var(--color-main-text, #fff);
-    border: 1px solid var(--color-primary-element, #0082c9);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    padding: 12px 18px;
+    background: #1e232a;
+    border: 1px solid #333842;
     border-radius: 10px;
-    z-index: 100001;
+    padding: 12px 18px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    z-index: 100002;
     display: flex;
     align-items: center;
     gap: 10px;
-    font-size: 14px;
-    animation: motrixSlideUp 0.25s ease-out;
+    font-size: 13px;
+    animation: ndDownloaderSlideUp 0.25s ease-out;
 }
 
-.motrix-toast-success {
-    border-color: #22c55e;
+.nd-downloader-toast-success {
+    border-left: 4px solid #10b981;
 }
 
-.motrix-toast-error {
-    border-color: #ef4444;
+.nd-downloader-toast-error {
+    border-left: 4px solid #ef4444;
 }
 
-
-/* Animations */
-@keyframes motrixFadeIn {
+@keyframes ndDownloaderFadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
 }
 
-@keyframes motrixSlideUp {
-    from {
-        opacity: 0;
-        transform: translateY(14px) scale(0.98);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
+@keyframes ndDownloaderSlideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
 }

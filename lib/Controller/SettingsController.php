@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace OCA\Motrix\Controller;
+namespace OCA\NdDownloader\Controller;
 
-use OCA\Motrix\Service\MotrixClient;
+use OCA\NdDownloader\Service\NdDownloaderClient;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataResponse;
@@ -46,15 +46,15 @@ class SettingsController extends Controller {
 
         $endpoint = trim($endpoint);
         if ($endpoint !== '') {
-            $this->config->setAppValue('motrix', MotrixClient::CONFIG_ENDPOINT, rtrim($endpoint, '/'));
+            $this->config->setAppValue('nddownloader', NdDownloaderClient::CONFIG_ENDPOINT, rtrim($endpoint, '/'));
         }
 
         if ($token !== null && trim($token) !== '') {
-            $this->config->setAppValue('motrix', MotrixClient::CONFIG_TOKEN, trim($token));
+            $this->config->setAppValue('nddownloader', NdDownloaderClient::CONFIG_TOKEN, trim($token));
         }
 
         if ($saveDir !== null && trim($saveDir) !== '') {
-            $this->config->setAppValue('motrix', MotrixClient::CONFIG_DEFAULT_SAVE_DIR, trim($saveDir));
+            $this->config->setAppValue('nddownloader', NdDownloaderClient::CONFIG_DEFAULT_SAVE_DIR, trim($saveDir));
         }
 
         return new DataResponse(['success' => true]);

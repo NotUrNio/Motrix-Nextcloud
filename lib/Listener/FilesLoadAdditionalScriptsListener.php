@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\Motrix\Listener;
+namespace OCA\NdDownloader\Listener;
 
 use OCA\Files\Event\LoadAdditionalScriptsEvent;
 use OCP\EventDispatcher\Event;
@@ -10,7 +10,7 @@ use OCP\EventDispatcher\IEventListener;
 use OCP\Util;
 
 /**
- * Injects Motrix shortcut scripts and styles into Nextcloud Files app.
+ * Injects ND Downloader shortcut scripts and styles into Nextcloud Files app.
  *
  * @template-implements IEventListener<LoadAdditionalScriptsEvent>
  */
@@ -20,7 +20,7 @@ class FilesLoadAdditionalScriptsListener implements IEventListener {
             return;
         }
 
-        Util::addScript('motrix', 'files-menu');
-        Util::addStyle('motrix', 'files-menu');
+        Util::addScript('nddownloader', 'files-menu');
+        Util::addStyle('nddownloader', 'files-menu');
     }
 }

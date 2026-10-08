@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\Motrix\Service;
+namespace OCA\NdDownloader\Service;
 
 use OCP\Files\IRootFolder;
 use OCP\IConfig;
@@ -27,21 +27,24 @@ class StorageSyncService {
     }
 
     /**
-     * Maps Motrix container download paths to candidate Nextcloud data paths.
+     * Maps ND Downloader container download paths to candidate Nextcloud data paths.
      */
     public function mapPath(string $path): string {
         $dataDir = rtrim((string)$this->config->getSystemValue('datadirectory', '/home/container/nextcloud/data'), '/');
-        $baseMotrixSaveDir = rtrim((string)$this->config->getAppValue('motrix', 'motrix_save_dir', '/downloads'), '/');
-        if (empty($baseMotrixSaveDir)) {
-            $baseMotrixSaveDir = '/downloads';
+        $baseNdSaveDir = rtrim((string)$this->config->getAppValue('nddownloader', 'nddownloader_save_dir', ''), '/');
+        if (empty($baseNdSaveDir)) {
+            $baseNdSaveDir = rtrim((string)$this->config->getAppValue('nddownloader', 'motrix_save_dir', (string)$this->config->getAppValue('motrix', 'motrix_save_dir', '/downloads')), '/');
+        }
+        if (empty($baseNdSaveDir)) {
+            $baseNdSaveDir = '/downloads';
         }
 
         if (file_exists($path)) {
             return $path;
         }
 
-        if (str_starts_with($path, $baseMotrixSaveDir)) {
-            $rel = substr($path, strlen($baseMotrixSaveDir));
+        if (str_starts_with($path, $baseNdSaveDir)) {
+            $rel = substr($path, strlen($baseNdSaveDir));
             return $dataDir . '/' . ltrim($rel, '/');
         }
 
@@ -61,8 +64,8 @@ class StorageSyncService {
     }
 
     /**
-     * Translates paths reported by the Motrix container into real local paths in Nextcloud,
-     * verifying that the canonical realpath is within the Motrix download root or Nextcloud datadirectory.
+     * Translates paths reported by the ND Downloader container into real local paths in Nextcloud,
+     * verifying that the canonical realpath is within the download root or Nextcloud datadirectory.
      */
     public function resolveLocalPath(?string $path): ?string {
         if (empty($path)) {
@@ -82,18 +85,21 @@ class StorageSyncService {
         $dataDir = rtrim((string)$this->config->getSystemValue('datadirectory', '/home/container/nextcloud/data'), '/');
         $realDataDir = realpath($dataDir);
 
-        $baseMotrixSaveDir = rtrim((string)$this->config->getAppValue('motrix', 'motrix_save_dir', '/downloads'), '/');
-        if (empty($baseMotrixSaveDir)) {
-            $baseMotrixSaveDir = '/downloads';
+        $baseNdSaveDir = rtrim((string)$this->config->getAppValue('nddownloader', 'nddownloader_save_dir', ''), '/');
+        if (empty($baseNdSaveDir)) {
+            $baseNdSaveDir = rtrim((string)$this->config->getAppValue('nddownloader', 'motrix_save_dir', (string)$this->config->getAppValue('motrix', 'motrix_save_dir', '/downloads')), '/');
+        }
+        if (empty($baseNdSaveDir)) {
+            $baseNdSaveDir = '/downloads';
         }
 
         $allowedRoots = [];
         if ($realDataDir !== false) {
             $allowedRoots[] = $realDataDir;
         }
-        $realMotrixDir = realpath($baseMotrixSaveDir);
-        if ($realMotrixDir !== false) {
-            $allowedRoots[] = $realMotrixDir;
+        $realNdDir = realpath($baseNdSaveDir);
+        if ($realNdDir !== false) {
+            $allowedRoots[] = $realNdDir;
         }
         $realDownloads = realpath('/downloads');
         if ($realDownloads !== false) {
@@ -109,8 +115,8 @@ class StorageSyncService {
         }
 
         if (!$isInsideAllowed) {
-            $this->logger->warning('Rejected file outside Motrix download root or Nextcloud datadirectory: ' . $realPath, [
-                'app' => 'motrix',
+            $this->logger->warning('Rejected file outside ND Downloader download root or Nextcloud datadirectory: ' . $realPath, [
+                'app' => 'nddownloader',
                 'path' => $path,
             ]);
             return null;
@@ -120,10 +126,10 @@ class StorageSyncService {
     }
 
     /**
-     * Syncs a completed Motrix download into the user's Nextcloud storage.
+     * Syncs a completed ND Downloader download into the user's Nextcloud storage.
      *
      * @param string $userId
-     * @param array $task Motrix task dictionary
+     * @param array $task Task dictionary
      * @param string $targetSubfolder Relative subfolder in user storage (default 'Downloads')
      * @return array Result information
      */
@@ -131,13 +137,13 @@ class StorageSyncService {
         $taskName = $task['name'] ?? 'download';
         $finalPath = $task['finalPath'] ?? null;
 
-        $motrixPath = $finalPath;
-        if (empty($motrixPath)) {
+        $ndPath = $finalPath;
+        if (empty($ndPath)) {
             $saveDir = $task['saveDir'] ?? '/downloads';
-            $motrixPath = rtrim($saveDir, '/') . '/' . $taskName;
+            $ndPath = rtrim($saveDir, '/') . '/' . $taskName;
         }
 
-        $resolvedPath = $this->resolveLocalPath($motrixPath);
+        $resolvedPath = $this->resolveLocalPath($ndPath);
 
         if ($resolvedPath === null && !empty($task['files']) && is_array($task['files'])) {
             foreach ($task['files'] as $f) {
@@ -146,7 +152,7 @@ class StorageSyncService {
                     $resolvedCandidate = $this->resolveLocalPath($fPath);
                     if ($resolvedCandidate !== null) {
                         $resolvedPath = $resolvedCandidate;
-                        $motrixPath = $fPath;
+                        $ndPath = $fPath;
                         break;
                     }
                 }
@@ -156,11 +162,11 @@ class StorageSyncService {
         $dataDir = rtrim((string)$this->config->getSystemValue('datadirectory', '/home/container/nextcloud/data'), '/');
 
         if ($resolvedPath === null || !file_exists($resolvedPath)) {
-            $effectiveMotrixPath = (string)($motrixPath ?: $taskName);
-            $mappedPath = $this->mapPath($effectiveMotrixPath);
-            $message = "Completed file not found. Motrix path: {$effectiveMotrixPath}, mapped path: {$mappedPath}, datadirectory: {$dataDir}";
+            $effectiveNdPath = (string)($ndPath ?: $taskName);
+            $mappedPath = $this->mapPath($effectiveNdPath);
+            $message = "Completed file not found. ND Downloader path: {$effectiveNdPath}, mapped path: {$mappedPath}, datadirectory: {$dataDir}";
             $this->logger->warning($message, [
-                'app' => 'motrix',
+                'app' => 'nddownloader',
                 'user' => $userId,
                 'task' => $task['id'] ?? $task['taskId'] ?? 'unknown',
             ]);
@@ -262,8 +268,8 @@ class StorageSyncService {
                 'fileName' => $destName,
             ];
         } catch (\Throwable $e) {
-            $this->logger->error('Failed to sync completed Motrix download to Nextcloud: ' . $e->getMessage(), [
-                'app' => 'motrix',
+            $this->logger->error('Failed to sync completed ND Downloader download to Nextcloud: ' . $e->getMessage(), [
+                'app' => 'nddownloader',
                 'user' => $userId,
                 'task' => $task['id'] ?? 'unknown',
             ]);
@@ -336,7 +342,7 @@ class StorageSyncService {
             ];
         } catch (\Throwable $e) {
             $this->logger->error('Failed to scan Nextcloud storage path: ' . $e->getMessage(), [
-                'app' => 'motrix',
+                'app' => 'nddownloader',
                 'user' => $userId,
                 'folder' => $targetFolder,
             ]);

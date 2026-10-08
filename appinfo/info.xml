@@ -1,30 +1,31 @@
 <?xml version="1.0"?>
 <info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
-    <id>motrix</id>
-    <name>Motrix Download Manager</name>
-    <summary>Seamless download manager for Nextcloud powered by Motrix</summary>
-    <description><![CDATA[Motrix integration for Nextcloud:
-- Add HTTP/HTTPS, FTP, Magnet links, and Torrents directly to Motrix
+    <id>nddownloader</id>
+    <name>ND Downloader</name>
+    <summary>Seamless download manager for Nextcloud powered by ND Downloader</summary>
+    <description><![CDATA[ND Downloader integration for Nextcloud:
+- Add HTTP/HTTPS, FTP, Magnet links, and Torrents directly to ND Downloader
 - Monitor real-time download progress, speeds, and ETA
 - Automatically sync completed files directly into your Nextcloud storage
 - Pause, resume, and remove active downloads
-- Powered by Motrix MDXP (JSON-RPC 2.0)
+- Powered by Aria2 RPC server
     ]]></description>
     <version>1.0.1</version>
     <licence>agpl</licence>
     <author>Nio</author>
     <category>tools</category>
-    <bugs>https://github.com/NotUrNio/Motrix-Nextcloud/issues</bugs>
+    <bugs>https://github.com/NotUrNio/ND-Nextcloud/issues</bugs>
+    <repository>https://github.com/NotUrNio/ND-Nextcloud</repository>
     <dependencies>
         <nextcloud min-version="28" max-version="36"/>
     </dependencies>
     <navigation>
         <name>Downloads</name>
-        <route>motrix.page.index</route>
-        <icon>img/motrix.svg</icon>
+        <route>nddownloader.page.index</route>
+        <icon>img/nddownloader.svg</icon>
         <order>70</order>
     </navigation>
     <settings>
-        <admin>OCA\Motrix\Settings\AdminSettings</admin>
+        <admin>OCA\NdDownloader\Settings\AdminSettings</admin>
     </settings>
 </info>

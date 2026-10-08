@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\Motrix\Controller;
+namespace OCA\NdDownloader\Controller;
 
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -19,9 +19,9 @@ class PageController extends Controller {
     #[NoAdminRequired]
     #[NoCSRFRequired]
     public function index(): TemplateResponse {
-        Util::addScript('motrix', 'app');
-        Util::addStyle('motrix', 'style');
+        Util::addScript('nddownloader', 'app');
+        Util::addStyle('nddownloader', 'style');
 
-        return new TemplateResponse('motrix', 'main', [], 'user');
+        return new TemplateResponse('nddownloader', 'main', [], 'user');
     }
 }

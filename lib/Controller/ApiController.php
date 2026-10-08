@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace OCA\Motrix\Controller;
+namespace OCA\NdDownloader\Controller;
 
 use InvalidArgumentException;
-use OCA\Motrix\Service\MotrixClient;
-use OCA\Motrix\Service\StorageSyncService;
-use OCA\Motrix\Service\TaskOwnershipService;
-use OCA\Motrix\Service\UrlValidator;
+use OCA\NdDownloader\Service\NdDownloaderClient;
+use OCA\NdDownloader\Service\StorageSyncService;
+use OCA\NdDownloader\Service\TaskOwnershipService;
+use OCA\NdDownloader\Service\UrlValidator;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -22,7 +22,7 @@ use OCP\IRequest;
 use OCP\IUserSession;
 
 class ApiController extends Controller {
-    private MotrixClient $motrixClient;
+    private NdDownloaderClient $ndClient;
     private StorageSyncService $storageSyncService;
     private TaskOwnershipService $taskOwnershipService;
     private UrlValidator $urlValidator;
@@ -34,7 +34,7 @@ class ApiController extends Controller {
     public function __construct(
         string $appName,
         IRequest $request,
-        MotrixClient $motrixClient,
+        NdDownloaderClient $ndClient,
         StorageSyncService $storageSyncService,
         TaskOwnershipService $taskOwnershipService,
         UrlValidator $urlValidator,
@@ -44,7 +44,7 @@ class ApiController extends Controller {
         IConfig $config
     ) {
         parent::__construct($appName, $request);
-        $this->motrixClient = $motrixClient;
+        $this->ndClient = $ndClient;
         $this->storageSyncService = $storageSyncService;
         $this->taskOwnershipService = $taskOwnershipService;
         $this->urlValidator = $urlValidator;
@@ -91,7 +91,7 @@ class ApiController extends Controller {
     }
 
     /**
-     * Normalizes Motrix/aria2 task status values into frontend statuses:
+     * Normalizes download task status values into frontend statuses:
      * downloading, queued, paused, completed, error.
      */
     public static function normalizeStatus(?string $status): string {
@@ -109,7 +109,7 @@ class ApiController extends Controller {
     #[NoAdminRequired]
     public function getStatus(): DataResponse {
         try {
-            $status = $this->motrixClient->getEngineStatus();
+            $status = $this->ndClient->getEngineStatus();
             return new DataResponse(['success' => true, 'status' => $status]);
         } catch (\Throwable $e) {
             return new DataResponse([
@@ -122,7 +122,7 @@ class ApiController extends Controller {
     #[NoAdminRequired]
     public function getStats(): DataResponse {
         try {
-            $stats = $this->motrixClient->getStats();
+            $stats = $this->ndClient->getStats();
             return new DataResponse(['success' => true, 'stats' => $stats]);
         } catch (\Throwable $e) {
             return new DataResponse([
@@ -141,7 +141,7 @@ class ApiController extends Controller {
 
         try {
             $userTaskIds = $this->taskOwnershipService->getUserTaskIds($user->getUID());
-            $allTasks = $this->motrixClient->listTasks($status);
+            $allTasks = $this->ndClient->listTasks($status);
 
             // Per-user isolation & status normalization
             $tasks = [];
@@ -175,9 +175,9 @@ class ApiController extends Controller {
         }
 
         try {
-            $task = $this->motrixClient->getTask($taskId);
+            $task = $this->ndClient->getTask($taskId);
             if (!$task) {
-                return new DataResponse(['success' => false, 'error' => 'Task not found in Motrix'], Http::STATUS_NOT_FOUND);
+                return new DataResponse(['success' => false, 'error' => 'Task not found in ND Downloader'], Http::STATUS_NOT_FOUND);
             }
 
             $rawStatus = (string)($task['status'] ?? '');
@@ -233,11 +233,11 @@ class ApiController extends Controller {
             }
 
             // 2. Enforce active task limit per user
-            $maxActiveTasks = (int)$this->config->getAppValue('motrix', 'max_active_tasks_per_user', '5');
+            $maxActiveTasks = (int)$this->config->getAppValue('nddownloader', 'max_active_tasks_per_user', '5');
             if ($maxActiveTasks > 0) {
                 $userTaskIds = $this->taskOwnershipService->getUserTaskIds($userId);
                 if (!empty($userTaskIds)) {
-                    $allTasks = $this->motrixClient->listTasks();
+                    $allTasks = $this->ndClient->listTasks();
                     $activeCount = 0;
                     foreach ($allTasks as $t) {
                         $tid = $t['id'] ?? $t['taskId'] ?? $t['gid'] ?? '';
@@ -276,16 +276,16 @@ class ApiController extends Controller {
             }
 
             // Server-side constructed save directory only (never client-controlled)
-            $baseSaveDir = rtrim($this->motrixClient->getDefaultSaveDir(), '/');
+            $baseSaveDir = rtrim($this->ndClient->getDefaultSaveDir(), '/');
             $saveDir = $baseSaveDir . '/' . $userId . '/' . ltrim($internalRelPath, '/');
 
-            // 4. Send download to Motrix server
+            // 4. Send download to ND Downloader server
             if ($kind === 'url') {
-                $task = $this->motrixClient->addUrl([$url], $saveDir, $filename);
+                $task = $this->ndClient->addUrl([$url], $saveDir, $filename);
             } elseif ($kind === 'magnet') {
-                $task = $this->motrixClient->addMagnet($magnet, $saveDir);
+                $task = $this->ndClient->addMagnet($magnet, $saveDir);
             } else {
-                $task = $this->motrixClient->addTorrent($torrent, $saveDir, $filename);
+                $task = $this->ndClient->addTorrent($torrent, $saveDir, $filename);
             }
 
             // 5. Record task ownership in DB
@@ -318,7 +318,7 @@ class ApiController extends Controller {
         }
 
         try {
-            $ok = $this->motrixClient->pauseTask($taskId);
+            $ok = $this->ndClient->pauseTask($taskId);
             return new DataResponse(['success' => $ok]);
         } catch (\Throwable $e) {
             return new DataResponse(['success' => false, 'error' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
@@ -337,7 +337,7 @@ class ApiController extends Controller {
         }
 
         try {
-            $ok = $this->motrixClient->resumeTask($taskId);
+            $ok = $this->ndClient->resumeTask($taskId);
             return new DataResponse(['success' => $ok]);
         } catch (\Throwable $e) {
             return new DataResponse(['success' => false, 'error' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
@@ -356,9 +356,9 @@ class ApiController extends Controller {
         }
 
         try {
-            $ok = $this->motrixClient->removeTask($taskId, $deleteFiles);
+            $ok = $this->ndClient->removeTask($taskId, $deleteFiles);
             if (!$ok) {
-                return new DataResponse(['success' => false, 'error' => 'Motrix did not remove the task'], Http::STATUS_BAD_GATEWAY);
+                return new DataResponse(['success' => false, 'error' => 'ND Downloader did not remove the task'], Http::STATUS_BAD_GATEWAY);
             }
             $this->taskOwnershipService->deleteTask($taskId);
             return new DataResponse(['success' => true, 'removed' => $ok]);
@@ -386,10 +386,10 @@ class ApiController extends Controller {
         }
 
         try {
-            $task = $this->motrixClient->getTask($taskId);
+            $task = $this->ndClient->getTask($taskId);
             if (!$task) {
                 // Fallback: search task list in case of ID/GID discrepancy
-                $allTasks = $this->motrixClient->listTasks();
+                $allTasks = $this->ndClient->listTasks();
                 foreach ($allTasks as $t) {
                     if (($t['id'] ?? '') === $taskId || ($t['gid'] ?? '') === $taskId) {
                         $task = $t;
@@ -399,7 +399,7 @@ class ApiController extends Controller {
             }
 
             if (!$task) {
-                return new DataResponse(['success' => false, 'error' => 'Task not found in Motrix'], Http::STATUS_NOT_FOUND);
+                return new DataResponse(['success' => false, 'error' => 'Task not found in ND Downloader'], Http::STATUS_NOT_FOUND);
             }
 
             $effectiveFolder = $targetFolder !== '' ? $targetFolder : ($taskMeta['target_folder'] ?? '');
@@ -446,11 +446,11 @@ class ApiController extends Controller {
             'success' => true,
             'isAdmin' => $isAdmin,
             // Only expose internal endpoint URL to administrators
-            'endpoint' => $isAdmin ? $this->motrixClient->getEndpoint() : '',
-            'saveDir' => $this->motrixClient->getDefaultSaveDir(),
-            'hasToken' => !empty($this->motrixClient->getToken()),
-            'allowPrivateNetwork' => $this->config->getAppValue('motrix', UrlValidator::CONFIG_ALLOW_PRIVATE, 'no') === 'yes',
-            'maxActiveTasksPerUser' => (int)$this->config->getAppValue('motrix', 'max_active_tasks_per_user', '5'),
+            'endpoint' => $isAdmin ? $this->ndClient->getEndpoint() : '',
+            'saveDir' => $this->ndClient->getDefaultSaveDir(),
+            'hasToken' => !empty($this->ndClient->getToken()),
+            'allowPrivateNetwork' => $this->config->getAppValue('nddownloader', UrlValidator::CONFIG_ALLOW_PRIVATE, 'no') === 'yes',
+            'maxActiveTasksPerUser' => (int)$this->config->getAppValue('nddownloader', 'max_active_tasks_per_user', '5'),
         ]);
     }
 
@@ -466,23 +466,23 @@ class ApiController extends Controller {
             return new DataResponse(['success' => false, 'error' => 'Admin privileges required'], Http::STATUS_FORBIDDEN);
         }
 
-        $this->config->setAppValue('motrix', MotrixClient::CONFIG_ENDPOINT, rtrim($endpoint, '/'));
+        $this->config->setAppValue('nddownloader', NdDownloaderClient::CONFIG_ENDPOINT, rtrim($endpoint, '/'));
 
         if ($token !== null && trim($token) !== '') {
-            $this->config->setAppValue('motrix', MotrixClient::CONFIG_TOKEN, trim($token));
+            $this->config->setAppValue('nddownloader', NdDownloaderClient::CONFIG_TOKEN, trim($token));
         }
 
         if (!empty($saveDir)) {
-            $this->config->setAppValue('motrix', MotrixClient::CONFIG_DEFAULT_SAVE_DIR, trim($saveDir));
+            $this->config->setAppValue('nddownloader', NdDownloaderClient::CONFIG_DEFAULT_SAVE_DIR, trim($saveDir));
         }
 
         if ($allowPrivateNetwork !== null) {
             $val = in_array(strtolower($allowPrivateNetwork), ['yes', 'true', '1'], true) ? 'yes' : 'no';
-            $this->config->setAppValue('motrix', UrlValidator::CONFIG_ALLOW_PRIVATE, $val);
+            $this->config->setAppValue('nddownloader', UrlValidator::CONFIG_ALLOW_PRIVATE, $val);
         }
 
         if ($maxActiveTasksPerUser !== null && $maxActiveTasksPerUser >= 0) {
-            $this->config->setAppValue('motrix', 'max_active_tasks_per_user', (string)$maxActiveTasksPerUser);
+            $this->config->setAppValue('nddownloader', 'max_active_tasks_per_user', (string)$maxActiveTasksPerUser);
         }
 
         return new DataResponse(['success' => true]);
@@ -494,7 +494,7 @@ class ApiController extends Controller {
             return new DataResponse(['success' => false, 'error' => 'Admin privileges required'], Http::STATUS_FORBIDDEN);
         }
 
-        $res = $this->motrixClient->testConnection();
+        $res = $this->ndClient->testConnection();
         return new DataResponse($res);
     }
 }

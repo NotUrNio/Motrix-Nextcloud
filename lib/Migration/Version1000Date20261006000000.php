@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\Motrix\Migration;
+namespace OCA\NdDownloader\Migration;
 
 use Closure;
 use OCP\DB\ISchemaWrapper;
@@ -16,8 +16,13 @@ class Version1000Date20261006000000 extends SimpleMigrationStep {
         /** @var ISchemaWrapper $schema */
         $schema = $schemaClosure();
 
-        if (!$schema->hasTable('motrix_tasks')) {
-            $table = $schema->createTable('motrix_tasks');
+        if (!$schema->hasTable('nddownloader_tasks')) {
+            if ($schema->hasTable('motrix_tasks')) {
+                $schema->renameTable('motrix_tasks', 'nddownloader_tasks');
+                return $schema;
+            }
+
+            $table = $schema->createTable('nddownloader_tasks');
             $table->addColumn('id', Types::BIGINT, [
                 'autoincrement' => true,
                 'notnull' => true,
@@ -46,8 +51,8 @@ class Version1000Date20261006000000 extends SimpleMigrationStep {
             ]);
 
             $table->setPrimaryKey(['id']);
-            $table->addUniqueIndex(['task_id'], 'motrix_task_id_idx');
-            $table->addIndex(['user_id'], 'motrix_user_id_idx');
+            $table->addUniqueIndex(['task_id'], 'nd_task_id_idx');
+            $table->addIndex(['user_id'], 'nd_user_id_idx');
 
             return $schema;
         }

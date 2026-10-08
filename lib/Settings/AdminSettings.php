@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace OCA\Motrix\Settings;
+namespace OCA\NdDownloader\Settings;
 
-use OCA\Motrix\Service\MotrixClient;
+use OCA\NdDownloader\Service\NdDownloaderClient;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\IConfig;
 use OCP\Settings\ISettings;
@@ -18,13 +18,22 @@ class AdminSettings implements ISettings {
     }
 
     public function getForm(): TemplateResponse {
-        Util::addScript('motrix', 'admin-settings');
+        Util::addScript('nddownloader', 'admin-settings');
 
-        $endpoint = (string)$this->config->getAppValue('motrix', MotrixClient::CONFIG_ENDPOINT, 'http://127.0.0.1:16801');
-        $saveDir = (string)$this->config->getAppValue('motrix', MotrixClient::CONFIG_DEFAULT_SAVE_DIR, '/downloads');
-        $hasToken = !empty($this->config->getAppValue('motrix', MotrixClient::CONFIG_TOKEN, ''));
+        $endpoint = (string)$this->config->getAppValue('nddownloader', NdDownloaderClient::CONFIG_ENDPOINT, '');
+        if (empty($endpoint)) {
+            $endpoint = (string)$this->config->getAppValue('nddownloader', 'motrix_endpoint', (string)$this->config->getAppValue('motrix', 'motrix_endpoint', 'http://127.0.0.1:16801'));
+        }
 
-        return new TemplateResponse('motrix', 'admin', [
+        $saveDir = (string)$this->config->getAppValue('nddownloader', NdDownloaderClient::CONFIG_DEFAULT_SAVE_DIR, '');
+        if (empty($saveDir)) {
+            $saveDir = (string)$this->config->getAppValue('nddownloader', 'motrix_save_dir', (string)$this->config->getAppValue('motrix', 'motrix_save_dir', '/downloads'));
+        }
+
+        $hasToken = !empty($this->config->getAppValue('nddownloader', NdDownloaderClient::CONFIG_TOKEN, ''))
+            || !empty($this->config->getAppValue('motrix', 'motrix_token', ''));
+
+        return new TemplateResponse('nddownloader', 'admin', [
             'endpoint' => $endpoint,
             'saveDir' => $saveDir,
             'hasToken' => $hasToken,
