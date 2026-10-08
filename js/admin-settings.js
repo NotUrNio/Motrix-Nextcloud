@@ -92,13 +92,16 @@
                 statusEl.textContent = 'Testing connection...';
                 statusEl.style.color = '#38bdf8';
 
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 10000);
                 try {
                     const res = await fetch(getApiUrl('/api/settings/test'), {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'requesttoken': getRequestToken(),
-                        }
+                        },
+                        signal: controller.signal
                     });
 
                     const data = await res.json();
@@ -111,9 +114,11 @@
                         statusEl.style.color = '#ef4444';
                     }
                 } catch (err) {
-                    statusEl.textContent = '✕ Error: ' + err.message;
+                    const msg = err.name === 'AbortError' ? 'Connection timed out (10s)' : err.message;
+                    statusEl.textContent = '✕ Error: ' + msg;
                     statusEl.style.color = '#ef4444';
                 } finally {
+                    clearTimeout(timer);
                     testBtn.disabled = false;
                 }
             });

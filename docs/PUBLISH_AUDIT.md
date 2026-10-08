@@ -258,7 +258,7 @@ Upon user approval of this audit, Phase 1 will implement the following structure
 ### 3. Server Deployment Documentation & Consistency
 - [ ] Provide a tested `docker-compose.yml` for running Nextcloud + ND Downloader server with a shared volume.
 - [ ] Document Docker setup as primary, and Pterodactyl as an optional sub-section.
-- [ ] Ensure the UI status label never hangs on "Engine: Checking..." by implementing explicit error/offline states on timeouts.
+- [x] Ensure the UI status label never hangs on "Engine: Checking..." by implementing explicit error/offline states on timeouts (`AbortController` timeout handling in `js/app.js` and `js/admin-settings.js`).
 
 ### 4. Tests & Linting
 - [ ] Set up basic PHPUnit test suite for `UrlValidator`, `TaskOwnershipService`, and client request building.

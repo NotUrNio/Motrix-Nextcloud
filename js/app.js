@@ -114,9 +114,24 @@
         }
     };
 
+    const fetchWithTimeout = async (url, options = {}, timeoutMs = 8000) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            return await fetch(url, { ...options, signal: controller.signal });
+        } catch (err) {
+            if (err.name === 'AbortError') {
+                throw new Error('Request timed out (8s)');
+            }
+            throw err;
+        } finally {
+            clearTimeout(timer);
+        }
+    };
+
     const fetchTasks = async () => {
         try {
-            const res = await fetch(getApiUrl('/api/tasks'), {
+            const res = await fetchWithTimeout(getApiUrl('/api/tasks'), {
                 headers: { 'requesttoken': getRequestToken() }
             });
             const data = await safeParseJson(res);
@@ -138,7 +153,7 @@
 
     const fetchStats = async () => {
         try {
-            const res = await fetch(getApiUrl('/api/stats'), {
+            const res = await fetchWithTimeout(getApiUrl('/api/stats'), {
                 headers: { 'requesttoken': getRequestToken() }
             });
             const data = await safeParseJson(res);
@@ -146,8 +161,12 @@
                 document.getElementById('speed-download').textContent = formatSpeed(data.stats.totalDownloadSpeed || 0);
                 document.getElementById('speed-upload').textContent = formatSpeed(data.stats.totalUploadSpeed || 0);
                 updateEngineStatus('ready', 'Ready');
+            } else {
+                updateEngineStatus('offline', 'Offline');
             }
-        } catch (_) {}
+        } catch (_) {
+            updateEngineStatus('offline', 'Offline');
+        }
     };
 
 
@@ -330,13 +349,13 @@
         updateEngineStatus('starting');
 
         try {
-            const res = await fetch(getApiUrl('/api/engine/start'), {
+            const res = await fetchWithTimeout(getApiUrl('/api/engine/start'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'requesttoken': getRequestToken()
                 }
-            });
+            }, 10000);
             const data = await safeParseJson(res);
             if (data.success) {
                 showNotification(data.message || 'ND engine is active and ready!', 'success');
