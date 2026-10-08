@@ -1,0 +1,33 @@
+{
+  "name": "noturnio/nd-nextcloud",
+  "description": "ND Downloader app for Nextcloud",
+  "license": "AGPL-3.0-or-later",
+  "type": "nextcloud-app",
+  "authors": [
+    {
+      "name": "NotUrNio",
+      "email": "niowork477@gmail.com"
+    }
+  ],
+  "require": {
+    "php": "^8.1 || ^8.2 || ^8.3 || ^8.4"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^10.0 || ^11.0",
+    "vimeo/psalm": "^5.0 || ^6.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "OCA\\NdDownloader\\": "lib/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "OCA\\NdDownloader\\Tests\\": "tests/"
+    }
+  },
+  "scripts": {
+    "test": "phpunit",
+    "psalm": "psalm"
+  }
+}

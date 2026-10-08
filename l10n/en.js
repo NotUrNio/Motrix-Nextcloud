@@ -1,0 +1,15 @@
+OC.L10N.register(
+    "nddownloader",
+    {
+    "ND Downloader" : "ND Downloader",
+    "Download with ND" : "Download with ND",
+    "Downloads" : "Downloads",
+    "Download URL, Magnet link, or Torrent" : "Download URL, Magnet link, or Torrent",
+    "Destination in Nextcloud" : "Destination in Nextcloud",
+    "Start Download" : "Start Download",
+    "Active Downloads" : "Active Downloads",
+    "Pause" : "Pause",
+    "Resume" : "Resume",
+    "Remove" : "Remove"
+},
+"nplurals=2; plural=(n != 1);");

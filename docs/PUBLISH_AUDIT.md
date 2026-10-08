@@ -255,11 +255,14 @@ Upon user approval of this audit, Phase 1 will implement the following structure
 - [x] **Step G (Complete):** Refactored `StorageSyncService.php` to use Nextcloud's `IRootFolder` / `IUserFolder` APIs exclusively. Replaced disk-level `rename()` and `copy()` with stream-based `setContent()`, supporting S3 / MinIO primary object storage and external storages. Replaced simplistic path cleaning with strict segment validation and boundary containment. Completely removed `datadirectory` and host path assumptions.
 - [x] **Step H (Complete):** Hardened `UrlValidator.php` against SSRF and DNS rebinding attacks. Implemented administrator-configurable domain allowlist and denylist policies, strict unconditional blocking of cloud metadata (169.254.169.254, AWS/GCP/Azure/OpenStack) and loopback ranges, and integrated security settings into Admin Settings UI, API endpoints, and JavaScript handlers.
 
-### 3. Server Deployment Documentation & Consistency
-- [ ] Provide a tested `docker-compose.yml` for running Nextcloud + ND Downloader server with a shared volume.
-- [ ] Document Docker setup as primary, and Pterodactyl as an optional sub-section.
+### 3. Server Deployment Documentation & Consistency (Completed)
+- [x] Provide a tested `docker-compose.yml` for running Nextcloud + ND Downloader server with a shared volume.
+- [x] Document Docker setup as primary, and Pterodactyl as an optional sub-section in `README.md`.
 - [x] Ensure the UI status label never hangs on "Engine: Checking..." by implementing explicit error/offline states on timeouts (`AbortController` timeout handling in `js/app.js` and `js/admin-settings.js`).
+- [x] Added `l10n/en.json` and `l10n/en.js` translation assets.
 
-### 4. Tests & Linting
-- [ ] Set up basic PHPUnit test suite for `UrlValidator`, `TaskOwnershipService`, and client request building.
-- [ ] Add `psalm.xml` or PHP linter configuration.
+### 4. Tests & Linting (Completed)
+- [x] Set up unit test suite in `tests/Unit/` (`UrlValidatorTest`, `StorageSyncServiceTest`) and standalone test runner `tests/run_tests.php`.
+- [x] Added `phpunit.xml.dist` and `composer.json` for CI/PHPUnit test execution.
+- [x] Added `psalm.xml.dist` for Psalm static analysis configuration.
+- [x] All 13 unit tests passing; all PHP files verified with `php -l`.

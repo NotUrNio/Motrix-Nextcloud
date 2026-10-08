@@ -49,13 +49,17 @@ class UrlValidator {
 
     private function validateNetworkUrl(string $url): void {
         $parts = parse_url($url);
-        if ($parts === false || !isset($parts['scheme'], $parts['host'])) {
+        if ($parts === false || !isset($parts['scheme'])) {
             throw new InvalidArgumentException('Malformed URL');
         }
 
         $scheme = strtolower($parts['scheme']);
         if (!in_array($scheme, ['http', 'https', 'ftp'], true)) {
             throw new InvalidArgumentException("Unsupported URL scheme: {$scheme}. Allowed: http, https, ftp, magnet");
+        }
+
+        if (!isset($parts['host'])) {
+            throw new InvalidArgumentException('Malformed URL: host is required');
         }
 
         $host = strtolower($parts['host']);

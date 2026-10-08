@@ -1,0 +1,60 @@
+services:
+  nextcloud:
+    image: nextcloud:30-apache
+    container_name: nextcloud
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - MYSQL_PASSWORD=nextcloud_secret
+      - MYSQL_HOST=db
+      # Optional: enable local server communication if ND Downloader runs on private network
+      # Add to config.php: 'allow_local_remote_servers' => true
+    volumes:
+      - nextcloud_data:/var/www/html
+      - nd_downloads:/downloads:rw
+    depends_on:
+      - db
+      - nd-server
+    networks:
+      - nextcloud_net
+
+  db:
+    image: mariadb:10.11
+    container_name: nextcloud_db
+    restart: unless-stopped
+    command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_secret
+      - MYSQL_PASSWORD=nextcloud_secret
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - nextcloud_net
+
+  nd-server:
+    image: motrix/motrix-server:latest
+    container_name: nd-server
+    restart: unless-stopped
+    ports:
+      - "16801:16801"
+    environment:
+      - MOTRIX_PORT=16801
+      - MOTRIX_SECRET=YOUR_SECURE_RPC_TOKEN_HERE
+    volumes:
+      - nd_downloads:/downloads:rw
+    networks:
+      - nextcloud_net
+
+volumes:
+  nextcloud_data:
+  db_data:
+  nd_downloads:
+
+networks:
+  nextcloud_net:
+    driver: bridge
