@@ -73,6 +73,7 @@ jobs:
             build/nddownloader.tar.gz
             build/nddownloader-${{ github.ref_name }}.tar.gz
             build/nddownloader.tar.gz.sig
+          fail_on_unmatched_files: false
           draft: false
           prerelease: false
           generate_release_notes: true
