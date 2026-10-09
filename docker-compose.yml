@@ -1,6 +1,6 @@
 services:
   nextcloud:
-    image: nextcloud:30-apache
+    image: nextcloud:35-apache
     container_name: nextcloud
     restart: unless-stopped
     ports:

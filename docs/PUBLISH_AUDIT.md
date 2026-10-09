@@ -27,7 +27,7 @@ Nextcloud enforces an XML schema validation check ([`info.xsd`](https://apps.nex
 | `<bugs>` | `https://github.com/NotUrNio/ND-Nextcloud/issues` | **Valid** HTTPS issue tracker URL. | Keep. |
 | `<repository>` | `https://github.com/NotUrNio/ND-Nextcloud` | **Partial**. Schema requires attribute `type="git"`: `<repository type="git">...</repository>`. | Add `type="git"` attribute. |
 | `<screenshot>` | **MISSING**. | **FAILED**. Nextcloud App Store requires at least one `<screenshot>` entry (recommended 2–3 screenshots showing UI and settings). | Add `<screenshot>` URLs/paths pointing to valid images. |
-| `<dependencies>` | `<nextcloud min-version="28" max-version="36"/>` | **FAILED**. `max-version="36"` is an invalid future version rejected by store linting. Max version cannot exceed current Nextcloud release + 1 (currently NC 31). | Change to `<nextcloud min-version="28" max-version="31"/>`. |
+| `<dependencies>` | `<nextcloud min-version="33" max-version="35"/>` | **COMPLIANT**. Covers all currently supported Nextcloud major versions (33, 34, 35) per the official Maintenance and Release Schedule. | Verified against `info.xsd`. |
 | `<dependencies>` | Missing `<php>` tag | **FAILED**. Schema requires `<php min-version="..." max-version="..."/>`. | Add `<php min-version="8.1" max-version="8.4"/>`. |
 | `<namespace>` | `<namespace>NdDownloader</namespace>` | **Legacy / Deprecated**. PSR-4 `OCA\NdDownloader` is resolved automatically via composer/Application in NC 28+. | Can be kept or omitted safely. |
 
@@ -150,13 +150,17 @@ A scan of the codebase reveals lingering environment-specific paths (Pterodactyl
      - Filenames are sanitized via `basename()`, stripped of path separators and control characters.
      - Name collisions are resolved natively through `$destFolder->nodeExists($candidateName)` using progressive numbering (`filename (1).ext`, `filename (2).ext`).
 
-### 3.5 Token Storage Security & Encryption Decision (Step C)
-* **Architecture Decision:** We retain compatibility with Nextcloud 28 (`min-version="28"`) and encrypt the secret RPC Bearer token using Nextcloud's core `\OCP\Security\ICrypto` service.
-* **Rationale:** While Nextcloud 29 introduced `IAppConfig::TYPE_SENSITIVE`, using it would force dropping support for Nextcloud 28. `\OCP\Security\ICrypto` has been a stable, core cryptographic interface across Nextcloud 28 through 31. It encrypts the token at rest using authenticated AES encryption keyed by the Nextcloud server's unique secret (`config.php`).
-* **Implementation:**
-  - `NdDownloaderClient::setToken()` automatically encrypts tokens using `ICrypto::encrypt()` before saving to `oc_appconfig`.
-  - `NdDownloaderClient::getToken()` decrypts the ciphertext using `ICrypto::decrypt()`, falling back gracefully to plaintext if decrypting an unmigrated legacy value.
-  - Added migration `Version1001Date20261008000000.php` to scan for any existing plaintext `nddownloader_token` and encrypt it in place upon app update.
+### 3.5 Token Storage Security & Encryption Evaluation (Item 2)
+* **Target Version Range:** Nextcloud 33 to 35 (covering currently supported major versions per the official Nextcloud Maintenance and Release Schedule).
+* **Evaluation of `IAppConfig` Sensitive Values vs `\OCP\Security\ICrypto`:**
+  1. **API Stability & Encapsulation:** While internal Nextcloud implementations support sensitive flags (`--sensitive` in CLI), `OCP\IConfig` does not provide an explicit public interface method for sensitive typing.
+  2. **Authenticated Cryptographic Security:** `\OCP\Security\ICrypto` is Nextcloud's official public cryptographic service. It provides authenticated AES encryption keyed by the Nextcloud instance's master secret (`secret` in `config/config.php`).
+  3. **Defense-in-Depth at Rest:** Even if the `oc_appconfig` database table is directly inspected, the stored token is an encrypted ciphertext blob.
+  4. **Migration Path Maintained:**
+     - `NdDownloaderClient::getToken()` attempts decryption via `ICrypto::decrypt()`, falling back gracefully to plaintext for unmigrated legacy tokens.
+     - `NdDownloaderClient::setToken()` encrypts the token before persisting to `oc_appconfig`.
+     - Migration `Version1001Date20261008000000.php` scans and encrypts existing plaintext tokens in place.
+  5. **Conclusion:** Retaining `\OCP\Security\ICrypto` authenticated AES encryption provides robust, self-contained, and portable secret protection at rest across Nextcloud 33, 34, and 35.
 
 ### 3.6 Output Escaping & XSS Review
 * **Templates:** `templates/admin.php` properly uses `<?php p($_['endpoint']); ?>` and `<?php p($_['saveDir']); ?>`. `p()` escapes HTML entities.
@@ -169,7 +173,7 @@ A scan of the codebase reveals lingering environment-specific paths (Pterodactyl
 
 ---
 
-## 4. Deprecated & Removed APIs (NC 28 – NC 31)
+## 4. Deprecated & Removed APIs (NC 33 – NC 35)
 
 1. **`OCP\Util::addScript` & `OCP\Util::addStyle`:**
    * Used in `PageController.php`, `AdminSettings.php`, and `FilesLoadAdditionalScriptsListener.php`.
@@ -177,14 +181,14 @@ A scan of the codebase reveals lingering environment-specific paths (Pterodactyl
    * **Resolution (Step F):** Refactored `PageController::index()` to call `$response->addScript('nddownloader', 'app')` and `$response->addStyle('nddownloader', 'style')` directly. `AdminSettings.php` already does this.
 2. **`OCA\Files\Event\LoadAdditionalScriptsEvent`:**
    * Used in `Application.php` and `FilesLoadAdditionalScriptsListener.php` to inject `files-menu.js`.
-   * **Verification Status:** `LoadAdditionalScriptsEvent` remains supported across NC 28 through NC 31. However, listeners must safely handle unauthenticated contexts (e.g. public shares) where `IUserSession->getUser()` may be null.
+   * **Verification Status:** `LoadAdditionalScriptsEvent` remains supported across NC 33 through NC 35. However, listeners must safely handle unauthenticated contexts (e.g. public shares) where `IUserSession->getUser()` may be null.
    * **Resolution (Step F):** Injected `IUserSession` into `FilesLoadAdditionalScriptsListener` and added an explicit `$this->userSession->isLoggedIn()` guard so shortcut scripts are only loaded in authenticated user sessions.
 3. **`OCP\IConfig::getSystemValue('datadirectory')`:**
    * Used in `StorageSyncService.php`.
    * **Status:** Raw disk paths break on S3/MinIO Primary Object Storage and bypass Nextcloud file metadata.
    * **Resolution (Step G):** Completely eliminated in favor of `IRootFolder->getUserFolder($userId)`.
 4. **PHP Template Engines (`TemplateResponse`):**
-   * Traditional PHP templates in `templates/` remain fully supported across NC 28–31. Future major versions will encourage Vue single-page components.
+   * Traditional PHP templates in `templates/` remain fully supported across NC 33–35. Future major versions will encourage Vue single-page components.
 
 ---
 

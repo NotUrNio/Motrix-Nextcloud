@@ -1,7 +1,7 @@
 # ND Downloader for Nextcloud
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
-[![Nextcloud Compatible](https://img.shields.io/badge/Nextcloud-28%20--%2031-0082c9.svg)](https://apps.nextcloud.com)
+[![Nextcloud Compatible](https://img.shields.io/badge/Nextcloud-33%20--%2035-0082c9.svg)](https://apps.nextcloud.com)
 [![PHP](https://img.shields.io/badge/PHP-8.1%20--%208.4-777bb4.svg)](https://php.net)
 
 **ND Downloader** is a Nextcloud application that offloads remote file downloads (HTTP/HTTPS, FTP, Magnet links, and BitTorrent files) to a dedicated, high-performance background download server. Once downloads finish, ND Downloader automatically streams and syncs them into the user's personal Nextcloud storage.
@@ -54,7 +54,7 @@ ND Downloader communicates with an external **ND / Motrix download server** cont
 
 ## Requirements
 
-- **Nextcloud:** 28.0.0 – 31.x.x
+- **Nextcloud:** 33.0.0 – 35.x.x (currently supported Nextcloud releases)
 - **PHP:** 8.1 – 8.4 (with `curl` and `openssl` extensions enabled)
 - **ND Server:** A Docker container or server running the ND / Motrix download core.
 

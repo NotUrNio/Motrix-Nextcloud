@@ -5,13 +5,16 @@ declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/Unit/UrlValidatorTest.php';
 require_once __DIR__ . '/Unit/StorageSyncServiceTest.php';
+require_once __DIR__ . '/Unit/StorageSyncServiceIntegrationTest.php';
 
 use OCA\NdDownloader\Tests\Unit\UrlValidatorTest;
 use OCA\NdDownloader\Tests\Unit\StorageSyncServiceTest;
+use OCA\NdDownloader\Tests\Unit\StorageSyncServiceIntegrationTest;
 
 $testClasses = [
     UrlValidatorTest::class,
     StorageSyncServiceTest::class,
+    StorageSyncServiceIntegrationTest::class,
 ];
 
 $passed = 0;

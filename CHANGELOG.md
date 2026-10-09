@@ -16,4 +16,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automatic storage sync importing finished downloads into Nextcloud storage.
 - Encrypted storage for download server RPC Bearer tokens using `\OCP\Security\ICrypto`.
 - Admin settings interface for configuring backend server connection parameters.
-- Compatibility with Nextcloud 28, 29, 30, and 31 on PHP 8.1 through 8.4.
+- Compatibility with currently supported Nextcloud versions 33, 34, and 35 on PHP 8.1 through 8.4.
